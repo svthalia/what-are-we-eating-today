@@ -8,6 +8,9 @@ import time
 
 import requests
 
+# Mapping from WBW names to Slack names:
+from settings import SLACK_MAPPING
+
 TABLE_VOTES = 'vote_message'
 TABLE_PROFILES = 'profile'
 VOTES_ID = 'id'
@@ -24,32 +27,10 @@ WBW_LIST = os.getenv('WBW_LIST', 'e52ec42b-3d9a-4a2e-8c40-93c3a2ec85b0')
 # How many times a failing Slack API call should be retried
 MAX_RETRIES = 5
 
-# Mapping from WBW names to Slack names:
-SLACK_MAPPING = {
-    'Thom Wiggers': 'Thom Wiggers',
-    'Joren Vrancken': 'Joren Vranken',
-    'Freek': 'Freek van de Ven',
-    'Luko': 'Luko van der Maas',
-    'Yannick': 'Yannick Hogewind',
-    'Wietse K': 'Wietse Kuipers',
-    'Sébastiaan': 'Sébastiaan Versteeg',
-    'Joost Rijneveld': 'Joost Rijneveld',
-    'Bram': 'Bram in \'t Zandt',
-    'Gijs': 'Gijs Hendriksen',
-    'Gerdriaan Mulder': 'Gerdriaan Mulder',
-    'Tom van Bussel': 'Tom van Bussel',
-    'Erik Barendsen': None,
-    'Simone': None,
-    'Jelle': 'Jelle Besseling',
-    'Jen': 'Jen',
-    'Thalia Technicie': None,
-    'Nienke': 'Nienke Wessel',
-    'Dion': 'Dion Scheper',
-}
-
 
 class Bot:
     """A minimal wrapper for the Slack API, this class also manages the database"""
+
     def __init__(self, base_url, token, db_name):
         self.base_url = base_url
         self.token = token
