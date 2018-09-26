@@ -208,7 +208,10 @@ def check(bot):
         raise RuntimeError("Last vote was too long ago")
 
     reactions = bot.reactions_get(channel, timestamp)
-    filter_list = ['ramen', 'fries', 'ah', 'sandwhich']
+    for reaction in reactions['message']['reactions']:
+        if reaction['name'] == 'bomb':
+            return
+    filter_list = ['ramen', 'fries', 'ah', 'sandwich']
 
     voted = get_slack_names(bot, [reaction for reaction in reactions['message']['reactions']
                                   if reaction['name'] in filter_list])
