@@ -143,9 +143,9 @@ def multiple_max(iterable, key=None):
         if len(maximum) == 0:
             maximum = [thing]
             continue
-        if key(thing) > maximum[0]:
+        if key(thing) > key(maximum[0]):
             maximum = [thing]
-        elif key(thing) == maximum[0]:
+        elif key(thing) == key(maximum[0]):
             maximum.append(thing)
     return maximum
 
