@@ -21,8 +21,8 @@ PROFILE_SLACK_UID = 'slack_uid'
 PROFILE_SLACK_DISPLAY_NAME = 'display_name'
 ONE_DAY = 60 * 60 * 24
 REACTIONS = ['ramen', 'fries', 'ah', 'sandwich', 'house', 'x']
-WBW_EMAIL = os.environ['WBW_EMAIL']
-WBW_PASSWORD = os.environ['WBW_PASSWORD']
+WBW_EMAIL = os.environ['DJANGO_WBW_EMAIL']
+WBW_PASSWORD = os.environ['DJANGO_WBW_PASSWORD']
 WBW_LIST = os.getenv('WBW_LIST', 'e52ec42b-3d9a-4a2e-8c40-93c3a2ec85b0')
 # How many times a failing Slack API call should be retried
 MAX_RETRIES = 5
