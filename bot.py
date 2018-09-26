@@ -21,6 +21,8 @@ REACTIONS = ['ramen', 'fries', 'ah', 'sandwich', 'house', 'x']
 WBW_EMAIL = os.environ['WBW_EMAIL']
 WBW_PASSWORD = os.environ['WBW_PASSWORD']
 WBW_LIST = os.getenv('WBW_LIST', 'e52ec42b-3d9a-4a2e-8c40-93c3a2ec85b0')
+# How many times a failing Slack API call should be retried
+MAX_RETRIES = 5
 
 # Mapping from WBW names to Slack names:
 SLACK_MAPPING = {
@@ -97,21 +99,26 @@ class Bot:
             return name
 
         profile = self.users_profile_get(user_id)
-        try:
-            c.execute(
-                f'''INSERT INTO {TABLE_PROFILES} ({PROFILE_SLACK_UID}, {PROFILE_SLACK_DISPLAY_NAME}) VALUES (?, ?)''',
-                (user_id, profile['profile']['real_name_normalized']))
-            self.conn.commit()
-        except KeyError:
-            print(profile)
+        c.execute(
+            f'''INSERT INTO {TABLE_PROFILES} ({PROFILE_SLACK_UID}, {PROFILE_SLACK_DISPLAY_NAME}) VALUES (?, ?)''',
+            (user_id, profile['profile']['real_name_normalized']))
+        self.conn.commit()
 
         return profile['profile']['real_name_normalized']
 
     def run_method(self, method, arguments: dict):
         """Base method for running slack API calls"""
         arguments['token'] = self.token
-        r = requests.post(self.base_url + method, data=arguments)
-        return r.json()
+        for x in range(MAX_RETRIES):
+            r = requests.post(self.base_url + method, data=arguments)
+            json = r.json()
+            if json['ok']:
+                return json
+            elif json['error'] == 'ratelimited':
+                time.sleep((x + 1) * 2)
+            else:
+                print(json)
+                raise RuntimeError("Slack api call failed")
 
 
 def post_vote(bot, channel):
