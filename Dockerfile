@@ -8,4 +8,6 @@ COPY . .
 
 RUN pipenv install --system --deploy --ignore-pipfile
 
+RUN touch settings.py
+
 ENTRYPOINT [ "python", "./bot.py" ]
