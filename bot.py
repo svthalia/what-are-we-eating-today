@@ -77,7 +77,8 @@ class Bot:
         name = c.execute(f'''SELECT {PROFILE_SLACK_DISPLAY_NAME} FROM {TABLE_PROFILES} WHERE {PROFILE_SLACK_UID} = ?''',
                          (user_id,)).fetchone()
         if name is not None:
-            return name
+            # Rows are tuples, but we only selected one column
+            return name[0]
 
         profile = self.users_profile_get(user_id)
         c.execute(
