@@ -208,15 +208,22 @@ def check(bot):
         raise RuntimeError("Last vote was too long ago")
 
     reactions = bot.reactions_get(channel, timestamp)
-    voted = get_slack_names(bot, reactions['message']['reactions'])
+    filter_list = ['ramen', 'fries', 'ah', 'sandwhich']
+
+    voted = get_slack_names(bot, [reaction for reaction in reactions['message']['reactions']
+                                  if reaction['name'] in filter_list])
     lowest = wbw_get_lowest_member(voted)
     try:
         votes = [(reaction['name'], reaction['count']) for reaction in reactions['message']['reactions']
-                 if reaction['name'] in ['ramen', 'fries', 'ah', 'sandwhich']]
+                 if reaction['name'] in filter_list]
         # Filter out our own reactions
         votes = filter(lambda x: x[1] != 1, votes)
         # The multiple max allows us to make a random choice when the vote is tied
-        choice = random.choice(multiple_max(votes, key=lambda x: x[1]))[0]
+        try:
+            choice = random.choice(multiple_max(votes, key=lambda x: x[1]))[0]
+        except IndexError:
+            bot.chat_post_message(channel, "No technicie this week? :(")
+            return
 
         delivery = f"\n{lowest} has the honour to :bike: today"
 
@@ -231,8 +238,7 @@ def check(bot):
                                   "<!everyone> Albert Heijn! Idk how does this work? Login to ah.nl and make a list?" + delivery)
         elif choice == 'sandwhich':
             bot.chat_post_message(channel, "<!everyone> Subway!" + delivery)
-        else:
-            bot.chat_post_message(channel, "No technicie this week? :(")
+
     except KeyError:
         bot.chat_post_message(channel, "Oh no something went wrong. Back to the manual method, @pingiun handle this!")
 
