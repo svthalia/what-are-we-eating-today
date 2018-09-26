@@ -18,6 +18,8 @@ PROFILE_SLACK_UID = 'slack_uid'
 PROFILE_SLACK_DISPLAY_NAME = 'display_name'
 ONE_DAY = 60 * 60 * 24
 REACTIONS = ['ramen', 'fries', 'ah', 'sandwich', 'house', 'x']
+WBW_EMAIL = os.environ['WBW_EMAIL']
+WBW_PASSWORD = os.environ['WBW_PASSWORD']
 WBW_LIST = os.getenv('WBW_LIST', 'e52ec42b-3d9a-4a2e-8c40-93c3a2ec85b0')
 
 # Mapping from WBW names to Slack names:
@@ -45,6 +47,7 @@ SLACK_MAPPING = {
 
 
 class Bot:
+    """A minimal wrapper for the Slack API, this class also manages the database"""
     def __init__(self, base_url, token, db_name):
         self.base_url = base_url
         self.token = token
@@ -54,6 +57,7 @@ class Bot:
 
     @staticmethod
     def init_db(db_name):
+        """Create the required tables for the database"""
         conn = sqlite3.connect(db_name)
         c = conn.cursor()
         c.execute(f'''CREATE TABLE `{TABLE_VOTES}` 
@@ -69,18 +73,23 @@ class Bot:
         conn.commit()
 
     def chat_post_message(self, channel, text):
+        """https://api.slack.com/methods/chat.post.message"""
         return self.run_method('chat.postMessage', {'channel': channel, 'text': text})
 
     def reactions_get(self, channel, timestamp, full=True):
+        """https://api.slack.com/methods/reactions.get"""
         return self.run_method('reactions.get', {'channel': channel, 'timestamp': timestamp, 'full': full})
 
     def reactions_add(self, channel, timestamp, name):
+        """https://api.slack.com/methods/reactions.add"""
         return self.run_method('reactions.add', {'channel': channel, 'timestamp': timestamp, 'name': name})
 
     def users_profile_get(self, user, include_labels=False):
+        """https://api.slack.com/methods/users.profile.get"""
         return self.run_method('users.profile.get', {'user': user, 'include_labels': include_labels})
 
     def lookup_profile(self, user_id):
+        """Wrapper with database lookup for user_profile_get because the API call has a low rate limit"""
         c = self.conn.cursor()
         name = c.execute(f'''SELECT {PROFILE_SLACK_DISPLAY_NAME} FROM {TABLE_PROFILES} WHERE {PROFILE_SLACK_UID} = ?''',
                          (user_id,)).fetchone()
@@ -99,12 +108,14 @@ class Bot:
         return profile['profile']['real_name_normalized']
 
     def run_method(self, method, arguments: dict):
+        """Base method for running slack API calls"""
         arguments['token'] = self.token
         r = requests.post(self.base_url + method, data=arguments)
         return r.json()
 
 
 def post_vote(bot, channel):
+    """Sends a voting message to the channel `channel`"""
     message = bot.chat_post_message(channel, "<!everyone> What do you want to eat today?\n"
                                              "Chinese: :ramen:\n"
                                              "Fest: :fries:\n"
@@ -126,6 +137,16 @@ def post_vote(bot, channel):
 
 
 def multiple_max(iterable, key=None):
+    """Returns the list of all values in iterable that are the highest
+
+    :param iterable: The iterable to operate on
+    :param key: The key selecting function
+
+    :Example:
+
+    >>> multiple_max([('a',2), ('b', 4), ('c', 3), ('d', 4)], lambda x: x[1])
+    [('b', 4), ('d', 4)]
+    """
     if key is None:
         key = lambda x: x
 
@@ -142,11 +163,12 @@ def multiple_max(iterable, key=None):
 
 
 def create_wbw_session():
+    """Logs in to wiebetaaltwat.nl and returns the requests session"""
     session = requests.Session()
     payload = {
         'user': {
-            'email': os.environ['WBW_EMAIL'],
-            'password': os.environ['WBW_PASSWORD'],
+            'email': WBW_EMAIL,
+            'password': WBW_PASSWORD,
         }
     }
     response = session.post('https://api.wiebetaaltwat.nl/api/users/sign_in',
@@ -156,6 +178,10 @@ def create_wbw_session():
 
 
 def wbw_get_lowest_member(voted):
+    """Looks up the wiebetaaltwat balance and returns the slack name of the lowest standing balance holder
+
+    :param voted: the slack names of the people that should be considered
+    """
     session, response = create_wbw_session()
     response = session.get(f'https://api.wiebetaaltwat.nl/api/lists/{WBW_LIST}/balance',
                            headers={'Accept-Version': '3'},
@@ -168,6 +194,7 @@ def wbw_get_lowest_member(voted):
 
 
 def get_slack_names(bot, reactions):
+    """Returns actual slack names based on the slack uids from a reactions list"""
     user_ids = set()
     for reaction in reactions:
         user_ids = user_ids.union(reaction['users'])
@@ -180,6 +207,7 @@ def get_slack_names(bot, reactions):
 
 
 def check(bot):
+    """Tallies the last sent vote and sends the result plus the appointed courier"""
     c = bot.conn.cursor()
     row = c.execute(f'''SELECT {VOTES_CHANNEL}, {VOTES_TIMESTAMP}
                          FROM {TABLE_VOTES} ORDER BY {VOTES_TIMESTAMP} DESC LIMIT 1''').fetchone()
@@ -221,6 +249,7 @@ def check(bot):
 
 
 def usage():
+    """Prints usage"""
     print(f"Usage: {sys.argv[0]} [ post | check ]", file=sys.stderr)
     sys.exit(1)
 
