@@ -29,7 +29,10 @@ MAX_RETRIES = 5
 
 
 class Bot:
-    """A minimal wrapper for the Slack API, this class also manages the database"""
+    """
+    A minimal wrapper for the Slack API,
+    this class also manages the database
+    """
 
     def __init__(self, base_url, token, db_name):
         self.base_url = base_url
@@ -43,47 +46,79 @@ class Bot:
         """Create the required tables for the database"""
         conn = sqlite3.connect(db_name)
         c = conn.cursor()
-        c.execute(f'''CREATE TABLE `{TABLE_VOTES}` 
-                         (`{VOTES_ID}` INTEGER,
-                         `{VOTES_CHANNEL}` TEXT,
-                         `{VOTES_TIMESTAMP}` TEXT,
-                         PRIMARY KEY(`{VOTES_ID}`));''')
-        c.execute(f'''CREATE TABLE `{TABLE_PROFILES}`
-                        (`{PROFILE_ID}` INTEGER,
-                        `{PROFILE_SLACK_UID}` TEXT,
-                        `{PROFILE_SLACK_DISPLAY_NAME}` TEXT,
-                        PRIMARY KEY(`{PROFILE_ID}`));''')
+
+        c.execute(
+            f'CREATE TABLE `{TABLE_VOTES}` '
+            f'(`{VOTES_ID}` INTEGER, '
+            f'`{VOTES_CHANNEL}` TEXT, '
+            f'`{VOTES_TIMESTAMP}` TEXT, '
+            f'PRIMARY KEY(`{VOTES_ID}`));'
+        )
+
+        c.execute(
+            f'CREATE TABLE `{TABLE_PROFILES}` '
+            f'(`{PROFILE_ID}` INTEGER, '
+            f'`{PROFILE_SLACK_UID}` TEXT, '
+            f'`{PROFILE_SLACK_DISPLAY_NAME}` TEXT, '
+            f'PRIMARY KEY(`{PROFILE_ID}`));'
+        )
         conn.commit()
 
     def chat_post_message(self, channel, text):
         """https://api.slack.com/methods/chat.post.message"""
-        return self.run_method('chat.postMessage', {'channel': channel, 'text': text})
+        return self.run_method(
+            'chat.postMessage',
+            {'channel': channel, 'text': text}
+        )
 
     def reactions_get(self, channel, timestamp, full=True):
         """https://api.slack.com/methods/reactions.get"""
-        return self.run_method('reactions.get', {'channel': channel, 'timestamp': timestamp, 'full': full})
+        return self.run_method(
+            'reactions.get',
+            {'channel': channel, 'timestamp': timestamp, 'full': full}
+        )
 
     def reactions_add(self, channel, timestamp, name):
         """https://api.slack.com/methods/reactions.add"""
-        return self.run_method('reactions.add', {'channel': channel, 'timestamp': timestamp, 'name': name})
+        return self.run_method(
+            'reactions.add',
+            {'channel': channel, 'timestamp': timestamp, 'name': name}
+        )
 
     def users_profile_get(self, user, include_labels=False):
         """https://api.slack.com/methods/users.profile.get"""
-        return self.run_method('users.profile.get', {'user': user, 'include_labels': include_labels})
+        return self.run_method(
+            'users.profile.get',
+            {'user': user, 'include_labels': include_labels}
+        )
 
     def lookup_profile(self, user_id):
-        """Wrapper with database lookup for user_profile_get because the API call has a low rate limit"""
+        """
+        Wrapper with database lookup for user_profile_
+        get because the API call has a low rate limit
+        """
+
         c = self.conn.cursor()
-        name = c.execute(f'''SELECT {PROFILE_SLACK_DISPLAY_NAME} FROM {TABLE_PROFILES} WHERE {PROFILE_SLACK_UID} = ?''',
-                         (user_id,)).fetchone()
+        name = c.execute(
+            f'SELECT {PROFILE_SLACK_DISPLAY_NAME} '
+            f'FROM {TABLE_PROFILES} '
+            f'WHERE {PROFILE_SLACK_UID} = ?',
+            (user_id,)
+        ).fetchone()
+
         if name is not None:
             # Rows are tuples, but we only selected one column
             return name[0]
 
         profile = self.users_profile_get(user_id)
+
         c.execute(
-            f'''INSERT INTO {TABLE_PROFILES} ({PROFILE_SLACK_UID}, {PROFILE_SLACK_DISPLAY_NAME}) VALUES (?, ?)''',
-            (user_id, profile['profile']['real_name_normalized']))
+            f'INSERT INTO {TABLE_PROFILES} '
+            f'({PROFILE_SLACK_UID}, {PROFILE_SLACK_DISPLAY_NAME}) '
+            f'VALUES (?, ?)',
+            (user_id, profile['profile']['real_name_normalized'])
+        )
+
         self.conn.commit()
 
         return profile['profile']['real_name_normalized']
@@ -105,13 +140,18 @@ class Bot:
 
 def post_vote(bot, channel):
     """Sends a voting message to the channel `channel`"""
-    message = bot.chat_post_message(channel, "<!everyone> What do you want to eat today?\n"
-                                             "Chinese: :ramen:\n"
-                                             "Fest: :fries:\n"
-                                             "Appie: :ah:\n"
-                                             "Subway: :sandwich:\n"
-                                             "I'm eating at home: :house:\n"
-                                             "I'm not going today: :x:")
+
+    message = bot.chat_post_message(
+        channel,
+        "<!everyone> What do you want to eat today?\n"
+        "Chinese: :ramen:\n"
+        "Fest: :fries:\n"
+        "Appie: :ah:\n"
+        "Subway: :sandwich:\n"
+        "I'm eating at home: :house:\n"
+        "I'm not going today: :x:"
+    )
+
     if 'ts' not in message:
         print(message)
         raise RuntimeError("Invalid response")
@@ -120,35 +160,14 @@ def post_vote(bot, channel):
         bot.reactions_add(message['channel'], message['ts'], reaction)
 
     c = bot.conn.cursor()
-    c.execute(f'''INSERT INTO {TABLE_VOTES} ({VOTES_CHANNEL}, {VOTES_TIMESTAMP}) VALUES (?, ?)''',
-              (message['channel'], message['ts'],))
+    c.execute(
+        f'INSERT INTO {TABLE_VOTES} '
+        f'({VOTES_CHANNEL}, {VOTES_TIMESTAMP}) '
+        f'VALUES (?, ?)',
+        (message['channel'], message['ts'],)
+    )
+
     bot.conn.commit()
-
-
-def multiple_max(iterable, key=None):
-    """Returns the list of all values in iterable that are the highest
-
-    :param iterable: The iterable to operate on
-    :param key: The key selecting function
-
-    :Example:
-
-    >>> multiple_max([('a',2), ('b', 4), ('c', 3), ('d', 4)], lambda x: x[1])
-    [('b', 4), ('d', 4)]
-    """
-    if key is None:
-        key = lambda x: x
-
-    maximum = []
-    for thing in iterable:
-        if len(maximum) == 0:
-            maximum = [thing]
-            continue
-        if key(thing) > key(maximum[0]):
-            maximum = [thing]
-        elif key(thing) == key(maximum[0]):
-            maximum.append(thing)
-    return maximum
 
 
 def create_wbw_session():
@@ -167,14 +186,20 @@ def create_wbw_session():
 
 
 def wbw_get_lowest_member(voted):
-    """Looks up the wiebetaaltwat balance and returns the slack name of the lowest standing balance holder
+    """
+    Looks up the wiebetaaltwat balance and returns
+    the slack name of the lowest standing balance holder
 
     :param voted: the slack names of the people that should be considered
     """
     session, response = create_wbw_session()
-    response = session.get(f'https://api.wiebetaaltwat.nl/api/lists/{WBW_LIST}/balance',
-                           headers={'Accept-Version': '3'},
-                           cookies=response.cookies)
+
+    response = session.get(
+        f'https://api.wiebetaaltwat.nl/api/lists/{WBW_LIST}/balance',
+        headers={'Accept-Version': '3'},
+        cookies=response.cookies
+    )
+
     data = response.json()
     for member in reversed(data['balance']['member_totals']):
         nickname = member['member_total']['member']['nickname']
@@ -183,7 +208,11 @@ def wbw_get_lowest_member(voted):
 
 
 def get_slack_names(bot, reactions):
-    """Returns actual slack names based on the slack uids from a reactions list"""
+    """
+    Returns actual slack names based on
+    the slack uids from a reactions list
+    """
+
     user_ids = set()
     for reaction in reactions:
         user_ids = user_ids.union(reaction['users'])
@@ -196,10 +225,19 @@ def get_slack_names(bot, reactions):
 
 
 def check(bot):
-    """Tallies the last sent vote and sends the result plus the appointed courier"""
+    """
+    Tallies the last sent vote and sends
+    the result plus the appointed courier
+    """
+
     c = bot.conn.cursor()
-    row = c.execute(f'''SELECT {VOTES_CHANNEL}, {VOTES_TIMESTAMP}
-                         FROM {TABLE_VOTES} ORDER BY {VOTES_TIMESTAMP} DESC LIMIT 1''').fetchone()
+    row = c.execute(
+        f'SELECT {VOTES_CHANNEL}, {VOTES_TIMESTAMP} '
+        f'FROM {TABLE_VOTES} '
+        f'ORDER BY {VOTES_TIMESTAMP} '
+        f'DESC LIMIT 1'
+    ).fetchone()
+
     if row is None:
         raise RuntimeError("No messages found at checking time")
     channel = row[0]
@@ -213,17 +251,36 @@ def check(bot):
             return
     filter_list = ['ramen', 'fries', 'ah', 'sandwich']
 
-    voted = get_slack_names(bot, [reaction for reaction in reactions['message']['reactions']
-                                  if reaction['name'] in filter_list])
+    voted = get_slack_names(
+        bot,
+        [
+            reaction
+            for reaction in reactions['message']['reactions']
+            if reaction['name'] in filter_list
+        ]
+    )
+
     lowest = wbw_get_lowest_member(voted)
     try:
-        votes = [(reaction['name'], reaction['count']) for reaction in reactions['message']['reactions']
-                 if reaction['name'] in filter_list]
+        votes = [
+            (reaction['name'], reaction['count'])
+            for reaction in reactions['message']['reactions']
+            if reaction['name'] in filter_list
+        ]
+
         # Filter out our own reactions
         votes = filter(lambda x: x[1] != 1, votes)
-        # The multiple max allows us to make a random choice when the vote is tied
+
+        # The multiple max allows us to make a random choice when the vote
+        # is tied
         try:
-            choice = random.choice(multiple_max(votes, key=lambda x: x[1]))[0]
+
+            highest_vote = max(votes, key=lambda i: i[1])[1]
+
+            choice = random.choice(
+                list(filter(lambda i: i[1] == highest_vote, votes))
+            )[0]
+
         except IndexError:
             bot.chat_post_message(channel, "No technicie this week? :(")
             return
@@ -231,19 +288,31 @@ def check(bot):
         delivery = f"\n{lowest} has the honour to :bike: today"
 
         if choice == 'ramen':
-            bot.chat_post_message(channel,
-                                  "<!everyone> We're eating chinese! https://eetvoudig.technicie.nl" + delivery)
+            bot.chat_post_message(
+                channel,
+                "<!everyone> We're eating chinese! "
+                "https://eetvoudig.technicie.nl" + delivery
+            )
         elif choice == 'fries':
-            bot.chat_post_message(channel,
-                                  "<!everyone> We're eating fastfood! https://eetfestijn.technicie.nl" + delivery)
+            bot.chat_post_message(
+                channel,
+                "<!everyone> We're eating fastfood! "
+                "https://eetfestijn.technicie.nl" + delivery
+            )
         elif choice == 'ah':
-            bot.chat_post_message(channel,
-                                  "<!everyone> Albert Heijn! Idk how does this work? Login to ah.nl and make a list?" + delivery)
-        elif choice == 'sandwhich':
+            bot.chat_post_message(
+                channel,
+                "<!everyone> Albert Heijn! Idk how does this work? "
+                "Login to ah.nl and make a list?" + delivery
+            )
+        elif choice == 'sandwich':
             bot.chat_post_message(channel, "<!everyone> Subway!" + delivery)
 
     except KeyError:
-        bot.chat_post_message(channel, "Oh no something went wrong. Back to the manual method, @pingiun handle this!")
+        bot.chat_post_message(
+            channel, "Oh no something went wrong. "
+                     "Back to the manual method, @pingiun handle this!"
+        )
 
 
 def usage():
