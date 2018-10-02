@@ -124,33 +124,6 @@ def post_vote(bot, channel):
               (message['channel'], message['ts'],))
     bot.conn.commit()
 
-
-def multiple_max(iterable, key=None):
-    """Returns the list of all values in iterable that are the highest
-
-    :param iterable: The iterable to operate on
-    :param key: The key selecting function
-
-    :Example:
-
-    >>> multiple_max([('a',2), ('b', 4), ('c', 3), ('d', 4)], lambda x: x[1])
-    [('b', 4), ('d', 4)]
-    """
-    if key is None:
-        key = lambda x: x
-
-    maximum = []
-    for thing in iterable:
-        if len(maximum) == 0:
-            maximum = [thing]
-            continue
-        if key(thing) > key(maximum[0]):
-            maximum = [thing]
-        elif key(thing) == key(maximum[0]):
-            maximum.append(thing)
-    return maximum
-
-
 def create_wbw_session():
     """Logs in to wiebetaaltwat.nl and returns the requests session"""
     session = requests.Session()
@@ -223,7 +196,13 @@ def check(bot):
         votes = filter(lambda x: x[1] != 1, votes)
         # The multiple max allows us to make a random choice when the vote is tied
         try:
-            choice = random.choice(multiple_max(votes, key=lambda x: x[1]))[0]
+
+            highest_vote = max(votes, key=lambda i: i[1])[1]
+
+            choice = random.choice(
+                list(filter(lambda i: i[1] == highest_vote, votes))
+            )[0]
+
         except IndexError:
             bot.chat_post_message(channel, "No technicie this week? :(")
             return
