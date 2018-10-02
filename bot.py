@@ -266,10 +266,9 @@ def check(bot):
         # Filter out our own reactions
         votes = filter(lambda x: x[1] != 1, votes)
 
-        # The multiple max allows us to make a random choice when the vote
-        # is tied
         try:
 
+            # Choose a food, if the votes are tied a random food is chosen.
             highest_vote = max(votes, key=lambda i: i[1])[1]
 
             choice = random.choice(
