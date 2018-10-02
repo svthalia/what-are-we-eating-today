@@ -29,8 +29,7 @@ MAX_RETRIES = 5
 
 
 class Bot:
-    """
-    A minimal wrapper for the Slack API,
+    """A minimal wrapper for the Slack API,
     this class also manages the database
     """
 
@@ -93,9 +92,8 @@ class Bot:
         )
 
     def lookup_profile(self, user_id):
-        """
-        Wrapper with database lookup for user_profile_
-        get because the API call has a low rate limit
+        """Wrapper with database lookup for user_profile_get
+        because the API call has a low rate limit
         """
 
         c = self.conn.cursor()
@@ -186,8 +184,7 @@ def create_wbw_session():
 
 
 def wbw_get_lowest_member(voted):
-    """
-    Looks up the wiebetaaltwat balance and returns
+    """Looks up the wiebetaaltwat balance and returns
     the slack name of the lowest standing balance holder
 
     :param voted: the slack names of the people that should be considered
@@ -208,8 +205,7 @@ def wbw_get_lowest_member(voted):
 
 
 def get_slack_names(bot, reactions):
-    """
-    Returns actual slack names based on
+    """Returns actual slack names based on
     the slack uids from a reactions list
     """
 
@@ -225,8 +221,7 @@ def get_slack_names(bot, reactions):
 
 
 def check(bot):
-    """
-    Tallies the last sent vote and sends
+    """Tallies the last sent vote and sends
     the result plus the appointed courier
     """
 
