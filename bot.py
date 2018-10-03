@@ -296,8 +296,8 @@ def check(bot):
         elif choice == 'ah':
             bot.chat_post_message(
                 channel,
-                "<!everyone> Albert Heijn! Idk how does this work? "
-                "Login to ah.nl and make a list?" + delivery
+                "<!everyone> Albert Heijn! Login to ah.nl and make a "
+                "list." + delivery
             )
         elif choice == 'sandwich':
             bot.chat_post_message(channel, "<!everyone> Subway!" + delivery)
