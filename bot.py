@@ -255,7 +255,7 @@ def get_slack_names(bot, reactions):
     return slack_names
 
 
-def check(bot):
+def check(bot, remind=False):
     """Tallies the last sent vote and sends
     the result plus the appointed courier
     """
@@ -311,11 +311,13 @@ def check(bot):
             bot.chat_post_message(channel, "No technicie this week? :(")
             return
 
+        reminder = "Reminder: " if remind else ""
+
         for label, info in EAT_REACTIONS.items():
             if choice == label:
                 bot.chat_post_message(
                     channel,
-                    f"<!everyone> We're eating {info['desc']}! "
+                    f"<!everyone> {reminder}We're eating {info['desc']}! "
                     f"{info['instr']}\n"
                     f"{lowest} has the honour to :bike: today"
                 )
@@ -348,6 +350,8 @@ def main():
         post_vote(bot, channel)
     elif sys.argv[1] == 'check':
         check(bot)
+    elif sys.argv[1] == 'remind':
+        check(bot, remind=True)
     else:
         usage()
 
