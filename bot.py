@@ -146,6 +146,8 @@ def post_vote(bot, channel):
         "Fest: :fries:\n"
         "Appie: :ah:\n"
         "Subway: :sandwich:\n"
+        "Pizza: :pizzaparrot:\n"
+        "Wok: :dragon_face:\n"
         "I'm eating at home: :house:\n"
         "I'm not going today: :x:"
     )
@@ -244,7 +246,8 @@ def check(bot):
     for reaction in reactions['message']['reactions']:
         if reaction['name'] == 'bomb':
             return
-    filter_list = ['ramen', 'fries', 'ah', 'sandwich']
+    filter_list = ['ramen', 'fries', 'ah', 'sandwich', 'pizzaparrot',
+                   'dragon_face']
 
     voted = get_slack_names(
         bot,
@@ -301,6 +304,16 @@ def check(bot):
             )
         elif choice == 'sandwich':
             bot.chat_post_message(channel, "<!everyone> Subway!" + delivery)
+        elif choice == 'pizzaparrot':
+            bot.chat_post_message(
+                channel,
+                "<!everyone> Pizza! Check the menu at: "
+                "http://www.bellaitalia-nijmegen.com/menu" + delivery)
+        elif choice == 'dragon_face':
+            bot.chat_post_message(
+                channel,
+                "<!everyone> Wok! Check the menu at: "
+                "https://www.thuisbezorgd.nl/iwok-go" + delivery)
 
     except KeyError:
         bot.chat_post_message(
