@@ -270,11 +270,8 @@ def check(bot):
         votes = [
             (reaction['name'], reaction['count'])
             for reaction in reactions['message']['reactions']
-            if reaction['name'] in filter_list
+            if reaction['name'] in filter_list and reaction['count'] > 1
         ]
-
-        # Filter out our own reactions
-        votes = list(filter(lambda x: x[1] != 1, votes))
 
         try:
 
