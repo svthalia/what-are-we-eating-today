@@ -274,7 +274,7 @@ def check(bot):
         ]
 
         # Filter out our own reactions
-        votes = filter(lambda x: x[1] != 1, votes)
+        votes = list(filter(lambda x: x[1] != 1, votes))
 
         try:
 
