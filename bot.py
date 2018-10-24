@@ -27,16 +27,40 @@ WBW_LIST = os.getenv('WBW_LIST', 'e52ec42b-3d9a-4a2e-8c40-93c3a2ec85b0')
 MAX_RETRIES = 5
 
 EAT_REACTIONS = {
-    'ramen': 'Chinese',
-    'fries': 'Fest',
-    'ah': 'Appie',
-    'sandwich': 'Subway',
-    'pizza': 'Pizza',
-    'dragon_face': 'Wok',
+    'ramen': {
+        'desc': 'Chinese',
+        'instr': "https://eetvoudig.technicie.nl",
+    },
+    'fries': {
+        'desc': 'Fest',
+        'instr': "https://eetfestijn.technicie.nl",
+    },
+    'ah': {
+        'desc': 'Albert Heijn',
+        'instr': "Login to ah.nl and make a list.",
+    },
+    'sandwich': {
+        'desc': 'Subway',
+        'instr': "Choose your sub at: "
+                 "https://www.subway.com/nl-NL/MenuNutrition/Menu/All",
+    },
+    'pizza': {
+        'desc': 'Pizza',
+        'instr': "Check the menu at: "
+                 "http://www.bellaitalia-nijmegen.com/menu",
+    },
+    'dragon_face': {
+        'desc': 'Wok',
+        'instr': "Check the menu at: https://www.thuisbezorgd.nl/iwok-go"
+    },
 }
 HOME_REACTIONS = {
-    'house': "I'm eating at home",
-    'x': "I'm not going today",
+    'house': {
+        'desc': "I'm eating at home",
+    },
+    'x': {
+        'desc': "I'm not going today",
+    },
 }
 ALL_REACTIONS = {**EAT_REACTIONS, **HOME_REACTIONS}
 
@@ -156,7 +180,8 @@ def post_vote(bot, channel):
         channel,
         "<!everyone> What do you want to eat today?\n" +
         "\n".join([
-            f"{desc}: :{label}:" for label, desc in ALL_REACTIONS.items()
+            f"{info['desc']}: :{label}:"
+            for label, info in ALL_REACTIONS.items()
         ])
     )
 
@@ -286,38 +311,15 @@ def check(bot):
             bot.chat_post_message(channel, "No technicie this week? :(")
             return
 
-        delivery = f"\n{lowest} has the honour to :bike: today"
-
-        if choice == 'ramen':
-            bot.chat_post_message(
-                channel,
-                "<!everyone> We're eating chinese! "
-                "https://eetvoudig.technicie.nl" + delivery
-            )
-        elif choice == 'fries':
-            bot.chat_post_message(
-                channel,
-                "<!everyone> We're eating fastfood! "
-                "https://eetfestijn.technicie.nl" + delivery
-            )
-        elif choice == 'ah':
-            bot.chat_post_message(
-                channel,
-                "<!everyone> Albert Heijn! Login to ah.nl and make a "
-                "list." + delivery
-            )
-        elif choice == 'sandwich':
-            bot.chat_post_message(channel, "<!everyone> Subway!" + delivery)
-        elif choice == 'pizza':
-            bot.chat_post_message(
-                channel,
-                "<!everyone> Pizza! Check the menu at: "
-                "http://www.bellaitalia-nijmegen.com/menu" + delivery)
-        elif choice == 'dragon_face':
-            bot.chat_post_message(
-                channel,
-                "<!everyone> Wok! Check the menu at: "
-                "https://www.thuisbezorgd.nl/iwok-go" + delivery)
+        for label, info in EAT_REACTIONS.items():
+            if choice == label:
+                bot.chat_post_message(
+                    channel,
+                    f"<!everyone> We're eating {info['desc']}! "
+                    f"{info['instr']}\n"
+                    f"{lowest} has the honour to :bike: today"
+                )
+                break
 
     except KeyError:
         bot.chat_post_message(
