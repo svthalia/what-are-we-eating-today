@@ -20,12 +20,25 @@ PROFILE_ID = 'id'
 PROFILE_SLACK_UID = 'slack_uid'
 PROFILE_SLACK_DISPLAY_NAME = 'display_name'
 ONE_DAY = 60 * 60 * 24
-REACTIONS = ['ramen', 'fries', 'ah', 'sandwich', 'house', 'x']
 WBW_EMAIL = os.environ['DJANGO_WBW_EMAIL']
 WBW_PASSWORD = os.environ['DJANGO_WBW_PASSWORD']
 WBW_LIST = os.getenv('WBW_LIST', 'e52ec42b-3d9a-4a2e-8c40-93c3a2ec85b0')
 # How many times a failing Slack API call should be retried
 MAX_RETRIES = 5
+
+EAT_REACTIONS = {
+    'ramen': 'Chinese',
+    'fries': 'Fest',
+    'ah': 'Appie',
+    'sandwich': 'Subway',
+    'pizza': 'Pizza',
+    'dragon_face': 'Wok',
+}
+HOME_REACTIONS = {
+    'house': "I'm eating at home",
+    'x': "I'm not going today",
+}
+ALL_REACTIONS = {**EAT_REACTIONS, **HOME_REACTIONS}
 
 
 class Bot:
@@ -141,22 +154,17 @@ def post_vote(bot, channel):
 
     message = bot.chat_post_message(
         channel,
-        "<!everyone> What do you want to eat today?\n"
-        "Chinese: :ramen:\n"
-        "Fest: :fries:\n"
-        "Appie: :ah:\n"
-        "Subway: :sandwich:\n"
-        "Pizza: :pizza:\n"
-        "Wok: :dragon_face:\n"
-        "I'm eating at home: :house:\n"
-        "I'm not going today: :x:"
+        "<!everyone> What do you want to eat today?\n" +
+        "\n".join([
+            f"{desc}: :{label}:" for label, desc in ALL_REACTIONS.items()
+        ])
     )
 
     if 'ts' not in message:
         print(message)
         raise RuntimeError("Invalid response")
 
-    for reaction in REACTIONS:
+    for reaction in ALL_REACTIONS:
         bot.reactions_add(message['channel'], message['ts'], reaction)
 
     c = bot.conn.cursor()
@@ -246,8 +254,7 @@ def check(bot):
     for reaction in reactions['message']['reactions']:
         if reaction['name'] == 'bomb':
             return
-    filter_list = ['ramen', 'fries', 'ah', 'sandwich', 'pizza',
-                   'dragon_face']
+    filter_list = EAT_REACTIONS.keys()
 
     voted = get_slack_names(
         bot,
