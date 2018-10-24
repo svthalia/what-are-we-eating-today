@@ -1,0 +1,19 @@
+language: "python"
+
+python:
+  - "3.6"
+
+env:
+  - "PIPENV_IGNORE_VIRTUALENVS=1"
+
+before_script:
+  - "pip install --no-cache-dir pipenv"
+  - "pipenv --bare install --dev --ignore-pipfile"
+
+script:
+  - "pipenv run flake8 ."
+
+notifications:
+  email:
+    on_success: "never"
+    on_failure: "always"
