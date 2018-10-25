@@ -301,13 +301,15 @@ def check(bot, remind=False):
         try:
 
             # Choose a food, if the votes are tied a random food is chosen.
+            # Max throws ValueError if the list is empty
             highest_vote = max(votes, key=lambda i: i[1])[1]
 
+            # choice throws an IndexError if the list is empty
             choice = random.choice(
                 list(filter(lambda i: i[1] == highest_vote, votes))
             )[0]
 
-        except IndexError:
+        except (IndexError, ValueError):
             bot.chat_post_message(channel, "No technicie this week? :(")
             return
 
