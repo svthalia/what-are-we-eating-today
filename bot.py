@@ -29,7 +29,9 @@ MAX_RETRIES = 5
 EAT_REACTIONS = {
     'ramen': {
         'desc': 'Chinese',
-        'instr': "https://eetvoudig.technicie.nl",
+        'instr': "https://eetvoudig.technicie.nl\n"
+                 "Don't forget to order plain rice for Simone "
+                 "(if she joins us)",
     },
     'fries': {
         'desc': 'Fest',
@@ -51,7 +53,8 @@ EAT_REACTIONS = {
     },
     'dragon_face': {
         'desc': 'Wok',
-        'instr': "Check the menu at: https://www.thuisbezorgd.nl/iwok-go"
+        'instr': "Check the menu at: https://www.thuisbezorgd.nl/iwok-go\n"
+                 "Don't forget to ask for chopsticks!",
     },
 }
 HOME_REACTIONS = {
