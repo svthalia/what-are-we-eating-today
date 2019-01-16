@@ -337,7 +337,7 @@ def check(bot, remind=False):
 
 def usage():
     """Prints usage"""
-    print(f"Usage: {sys.argv[0]} [ post | check ]", file=sys.stderr)
+    print(f"Usage: {sys.argv[0]} [ post | check | remind ]", file=sys.stderr)
     sys.exit(1)
 
 
