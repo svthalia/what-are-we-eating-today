@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "what-are-we-eating-today"
+version = "0.1.0"
+description = "Slack bot which helps us choose what to eat, and who is going to buy the food"
+authors = ["Jelle Besseling <jelle@pingiun.com>"]
+license = "GPL-3.0+"
+readme = "README.md"
+repository = "https://github.com/thaliawww/what-are-we-eating-today"
+
+[tool.poetry.dependencies]
+python = "^3.6"
+requests = "^2.21"
+
+[tool.poetry.dev-dependencies]
+flake8 = "^3.6"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
