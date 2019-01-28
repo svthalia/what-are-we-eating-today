@@ -217,7 +217,7 @@ def create_wbw_session():
     }
     response = session.post('https://api.wiebetaaltwat.nl/api/users/sign_in',
                             json=payload,
-                            headers={'Accept-Version': '3'})
+                            headers={'Accept-Version': '6'})
     return session, response
 
 
