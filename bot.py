@@ -16,13 +16,10 @@ TABLE_PROFILES = 'profile'
 VOTES_ID = 'id'
 VOTES_CHANNEL = 'channel'
 VOTES_TIMESTAMP = 'timestamp'
-PROFILE_ID = 'id'
-PROFILE_SLACK_UID = 'slack_uid'
-PROFILE_SLACK_DISPLAY_NAME = 'display_name'
+WBW_EMAIL = None
+WBW_PASSWORD = None
+WBW_LIST = None
 ONE_DAY = 60 * 60 * 24
-WBW_EMAIL = os.environ['DJANGO_WBW_EMAIL']
-WBW_PASSWORD = os.environ['DJANGO_WBW_PASSWORD']
-WBW_LIST = os.getenv('WBW_LIST', 'e52ec42b-3d9a-4a2e-8c40-93c3a2ec85b0')
 # How many times a failing Slack API call should be retried
 MAX_RETRIES = 5
 
@@ -77,13 +74,14 @@ class Bot:
         self.base_url = base_url
         self.token = token
         if not os.path.isfile(db_name):
-            self.init_db(db_name)
-        self.conn = sqlite3.connect(db_name)
+            self.conn = sqlite3.connect(db_name)
+            self.init_db(self.conn)
+        else:
+            self.conn = sqlite3.connect(db_name)
 
     @staticmethod
-    def init_db(db_name):
+    def init_db(conn):
         """Create the required tables for the database"""
-        conn = sqlite3.connect(db_name)
         c = conn.cursor()
 
         c.execute(
@@ -115,13 +113,6 @@ class Bot:
         return self.run_method(
             'reactions.add',
             {'channel': channel, 'timestamp': timestamp, 'name': name}
-        )
-
-    def users_profile_get(self, user, include_labels=False):
-        """https://api.slack.com/methods/users.profile.get"""
-        return self.run_method(
-            'users.profile.get',
-            {'user': user, 'include_labels': include_labels}
         )
 
     def run_method(self, method, arguments: dict):
@@ -295,8 +286,16 @@ def usage():
 
 
 def main():
+    global WBW_EMAIL
+    global WBW_PASSWORD
+    global WBW_LIST
+
     if len(sys.argv) != 2:
         usage()
+
+    WBW_EMAIL = os.environ['DJANGO_WBW_EMAIL']
+    WBW_PASSWORD = os.environ['DJANGO_WBW_PASSWORD']
+    WBW_LIST = os.getenv('WBW_LIST', 'e52ec42b-3d9a-4a2e-8c40-93c3a2ec85b0')
 
     base_url = os.getenv('SLACK_BASE_URL', 'https://slack.com/api/')
     token = os.environ['SLACK_TOKEN']
