@@ -1,17 +1,21 @@
 language: "python"
 
+sudo: required
+dist: xenial
+
 python:
   - "3.6"
+  - "3.7"
 
-env:
-  - "PIPENV_IGNORE_VIRTUALENVS=1"
-
-before_script:
+before_install:
   - "pip install --no-cache-dir poetry"
+
+install:
   - "poetry install"
 
 script:
   - "poetry run flake8 ."
+  - "poetry run pytest --cov=bot ."
 
 notifications:
   email:
