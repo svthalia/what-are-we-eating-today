@@ -2,11 +2,11 @@ FROM python:3
 
 WORKDIR /usr/src/app
 
-RUN pip install --no-cache-dir pipenv
+RUN pip install --no-cache-dir poetry
 
 COPY . .
 
-RUN pipenv install --system --deploy --ignore-pipfile
+RUN poetry install --no-dev
 
 RUN touch settings.py
 
