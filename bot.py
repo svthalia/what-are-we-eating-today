@@ -94,13 +94,6 @@ class Bot:
             f'PRIMARY KEY(`{VOTES_ID}`));'
         )
 
-        c.execute(
-            f'CREATE TABLE `{TABLE_PROFILES}` '
-            f'(`{PROFILE_ID}` INTEGER, '
-            f'`{PROFILE_SLACK_UID}` TEXT, '
-            f'`{PROFILE_SLACK_DISPLAY_NAME}` TEXT, '
-            f'PRIMARY KEY(`{PROFILE_ID}`));'
-        )
         conn.commit()
 
     def chat_post_message(self, channel, text):
@@ -130,36 +123,6 @@ class Bot:
             'users.profile.get',
             {'user': user, 'include_labels': include_labels}
         )
-
-    def lookup_profile(self, user_id):
-        """Wrapper with database lookup for user_profile_get
-        because the API call has a low rate limit
-        """
-
-        c = self.conn.cursor()
-        name = c.execute(
-            f'SELECT {PROFILE_SLACK_DISPLAY_NAME} '
-            f'FROM {TABLE_PROFILES} '
-            f'WHERE {PROFILE_SLACK_UID} = ?',
-            (user_id,)
-        ).fetchone()
-
-        if name is not None:
-            # Rows are tuples, but we only selected one column
-            return name[0]
-
-        profile = self.users_profile_get(user_id)
-
-        c.execute(
-            f'INSERT INTO {TABLE_PROFILES} '
-            f'({PROFILE_SLACK_UID}, {PROFILE_SLACK_DISPLAY_NAME}) '
-            f'VALUES (?, ?)',
-            (user_id, profile['profile']['real_name_normalized'])
-        )
-
-        self.conn.commit()
-
-        return profile['profile']['real_name_normalized']
 
     def run_method(self, method, arguments: dict):
         """Base method for running slack API calls"""
@@ -225,37 +188,31 @@ def wbw_get_lowest_member(voted):
     """Looks up the wiebetaaltwat balance and returns
     the slack name of the lowest standing balance holder
 
+    If there is a tied lowest member, a random one is chosen.
+
     :param voted: the slack names of the people that should be considered
     """
     session, response = create_wbw_session()
 
     response = session.get(
         f'https://api.wiebetaaltwat.nl/api/lists/{WBW_LIST}/balance',
-        headers={'Accept-Version': '3'},
+        headers={'Accept-Version': '6'},
         cookies=response.cookies
     )
 
     data = response.json()
+    joining_members = []
     for member in reversed(data['balance']['member_totals']):
-        nickname = member['member_total']['member']['nickname']
-        if SLACK_MAPPING[nickname] in voted:
-            return nickname
+        wbw_id = member['member_total']['member']['id']
+        name = member['member_total']['member']['nickname']
+        balance = member['member_total']['balance_total']['fractional']
+        if SLACK_MAPPING[wbw_id] in voted:
+            joining_members.append({'name': name, 'balance': balance})
 
-
-def get_slack_names(bot, reactions):
-    """Returns actual slack names based on
-    the slack uids from a reactions list
-    """
-
-    user_ids = set()
-    for reaction in reactions:
-        user_ids = user_ids.union(reaction['users'])
-
-    slack_names = list()
-    for user_id in user_ids:
-        name = bot.lookup_profile(user_id)
-        slack_names.append(name)
-    return slack_names
+    lowest_balance = min(joining_members,
+                         key=lambda i: i['balance'])['balance']
+    return random.choice(list(filter(lambda i: i['balance'] == lowest_balance,
+                                     joining_members)))['name']
 
 
 def check(bot, remind=False):
@@ -284,33 +241,30 @@ def check(bot, remind=False):
             return
     filter_list = EAT_REACTIONS.keys()
 
-    voted = get_slack_names(
-        bot,
-        [
-            reaction
-            for reaction in reactions['message']['reactions']
-            if reaction['name'] in filter_list
-        ]
-    )
+    voted_slack_ids = set()
+    for reaction in reactions['message']['reactions']:
+        if reaction['name'] in filter_list:
+            voted_slack_ids = voted_slack_ids.union(reaction['users'])
 
-    lowest = wbw_get_lowest_member(voted)
     try:
         votes = [
-            (reaction['name'], reaction['count'])
+            {'reaction': reaction['name'], 'count': reaction['count']}
             for reaction in reactions['message']['reactions']
             if reaction['name'] in filter_list and reaction['count'] > 1
         ]
 
         try:
+            # Get lowest member may raise a ValueError when nobody voted
+            lowest = wbw_get_lowest_member(voted_slack_ids)
 
             # Choose a food, if the votes are tied a random food is chosen.
             # Max throws ValueError if the list is empty
-            highest_vote = max(votes, key=lambda i: i[1])[1]
+            highest_vote = max(votes, key=lambda i: i['count'])['count']
 
             # choice throws an IndexError if the list is empty
             choice = random.choice(
-                list(filter(lambda i: i[1] == highest_vote, votes))
-            )[0]
+                list(filter(lambda i: i['count'] == highest_vote, votes))
+            )['reaction']
 
         except (IndexError, ValueError):
             bot.chat_post_message(channel, "No technicie this week? :(")
@@ -318,21 +272,20 @@ def check(bot, remind=False):
 
         reminder = "Reminder: " if remind else ""
 
-        for label, info in EAT_REACTIONS.items():
-            if choice == label:
-                bot.chat_post_message(
-                    channel,
-                    f"<!everyone> {reminder}We're eating {info['desc']}! "
-                    f"{info['instr']}\n"
-                    f"{lowest} has the honour to :bike: today"
-                )
-                break
+        info = EAT_REACTIONS[choice]
+        bot.chat_post_message(
+            channel,
+            f"<!everyone> {reminder}We're eating {info['desc']}! "
+            f"{info['instr']}\n"
+            f"{lowest} has the honour to :bike: today"
+        )
 
-    except KeyError:
+    except KeyError as e:
         bot.chat_post_message(
             channel, "Oh no something went wrong. "
                      "Back to the manual method, @pingiun handle this!"
         )
+        raise e
 
 
 def usage():
