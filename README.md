@@ -1,7 +1,7 @@
 # What Are We Eating Today Slack Bot [![Build Status](https://travis-ci.org/thaliawww/what-are-we-eating-today.svg?branch=master)](https://travis-ci.org/thaliawww/what-are-we-eating-today)
 
 ## Developing
-This project uses [poetry](https://github.com/sdispater/poetry) for dependency management and test running. You should follow the [installation instructions](https://github.com/sdispater/poetry#installation) for poetry first. Then you can install all the dependencies with this command:
+This project uses [poetry](https://github.com/sdispater/poetry) for dependency and virtualenv management. You should follow the [installation instructions](https://github.com/sdispater/poetry#installation) for poetry first. Then you can install all the dependencies with this command:
 
 ```bash
 poetry install
