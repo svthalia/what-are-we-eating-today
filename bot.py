@@ -62,7 +62,7 @@ EAT_REACTIONS = {
     'pizza': {
         'desc': 'Pizza',
         'instr': "Check the menu at: "
-                 "http://www.bellaitalia-nijmegen.com/menu",
+                 "https://www.thuisbezorgd.nl/pizzeria-rotana",
     },
     'dragon_face': {
         'desc': 'Wok',
