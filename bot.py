@@ -213,8 +213,12 @@ def wbw_get_lowest_member(voted):
         wbw_id = member['member_total']['member']['id']
         name = member['member_total']['member']['nickname']
         balance = member['member_total']['balance_total']['fractional']
-        if SLACK_MAPPING[wbw_id] in voted:
-            joining_members.append({'name': name, 'balance': balance})
+        try:
+            if SLACK_MAPPING[wbw_id] in voted:
+                joining_members.append({'name': name, 'balance': balance})
+        except KeyError:
+            print(f"User not found in slack mapping: {name} ({wbw_id})",
+                  file=sys.stderr)
 
     lowest_balance = min(joining_members,
                          key=lambda i: i['balance'])['balance']
