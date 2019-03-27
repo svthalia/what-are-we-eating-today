@@ -5,7 +5,7 @@ import pytest
 
 import bot
 from bot import (post_vote, check, Bot, ALL_REACTIONS, TABLE_VOTES,
-                 VOTES_TIMESTAMP, VOTES_CHANNEL)
+                 VOTES_TIMESTAMP, VOTES_CHANNEL, VOTES_CHOICE)
 
 
 class BotMock(Bot):
@@ -121,3 +121,34 @@ def test_check_sends_sad_message_when_nobody_voted():
     for method in mockbot.methods_ran:
         if method['method'] == 'chat.postMessage':
             assert method['arguments']['text'] == 'No technicie this week? :('
+
+
+def test_choose_existing_choice_in_reminder():
+    mockbot = BotMock()
+    c = mockbot.conn.cursor()
+    c.execute(
+        f'INSERT INTO {TABLE_VOTES} '
+        f'({VOTES_CHANNEL}, {VOTES_TIMESTAMP}, {VOTES_CHOICE}) '
+        f'VALUES (?, ?, ?)',
+        ('#general', int(time.time()), 'ah')
+    )
+
+    mockbot.conn.commit()
+
+    mockbot.return_items = [{
+        'message': {
+            'reactions': [
+                {'name': name, 'users': ['self'], 'count': 2}
+                for name in ALL_REACTIONS.keys()
+            ]
+        }
+    }]
+
+    check(mockbot, remind=True)
+
+    for method in mockbot.methods_ran:
+        if method['method'] == 'chat.postMessage':
+            assert (method['arguments']['text'] ==
+                    "<!everyone> Reminder: We're eating Albert Heijn! "
+                    "Login to ah.nl and make a list.\nJelle has the honour to "
+                    ":bike: today")

@@ -1,5 +1,4 @@
 import os
-import sqlite3
 import sys
 
 import pytest
@@ -7,19 +6,6 @@ import pytest
 import bot
 
 from bot import Bot, main
-
-
-class BotMock(Bot):
-    # noinspection PyMissingConstructor
-    def __init__(self):
-        self.methods_ran = list()
-        self.return_items = None
-        self.conn = sqlite3.connect(":memory:")
-        self.init_db(self.conn)
-
-    def run_method(self, method, arguments: dict):
-        self.methods_ran.append({'method': method, 'arguments': arguments})
-        return super(BotMock, self).run_method(method, arguments)
 
 
 pytestmark = pytest.mark.skipif(

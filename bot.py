@@ -28,10 +28,10 @@ import requests
 from settings import SLACK_MAPPING
 
 TABLE_VOTES = 'vote_message'
-TABLE_PROFILES = 'profile'
 VOTES_ID = 'id'
 VOTES_CHANNEL = 'channel'
 VOTES_TIMESTAMP = 'timestamp'
+VOTES_CHOICE = 'choice'
 WBW_EMAIL = None
 WBW_PASSWORD = None
 WBW_LIST = None
@@ -105,6 +105,7 @@ class Bot:
             f'(`{VOTES_ID}` INTEGER, '
             f'`{VOTES_CHANNEL}` TEXT, '
             f'`{VOTES_TIMESTAMP}` TEXT, '
+            f'`{VOTES_CHOICE}` TEXT, '
             f'PRIMARY KEY(`{VOTES_ID}`));'
         )
 
@@ -233,7 +234,7 @@ def check(bot, remind=False):
 
     c = bot.conn.cursor()
     row = c.execute(
-        f'SELECT {VOTES_CHANNEL}, {VOTES_TIMESTAMP} '
+        f'SELECT {VOTES_CHANNEL}, {VOTES_TIMESTAMP}, {VOTES_CHOICE} '
         f'FROM {TABLE_VOTES} '
         f'ORDER BY {VOTES_TIMESTAMP} '
         f'DESC LIMIT 1'
@@ -243,6 +244,7 @@ def check(bot, remind=False):
         raise RuntimeError("No messages found at checking time")
     channel = row[0]
     timestamp = row[1]
+    choice = row[2]
     if float(timestamp) < time.time() - ONE_DAY:
         raise RuntimeError("Last vote was too long ago")
 
@@ -271,11 +273,11 @@ def check(bot, remind=False):
             # Choose a food, if the votes are tied a random food is chosen.
             # Max throws ValueError if the list is empty
             highest_vote = max(votes, key=lambda i: i['count'])['count']
-
-            # choice throws an IndexError if the list is empty
-            choice = random.choice(
-                list(filter(lambda i: i['count'] == highest_vote, votes))
-            )['reaction']
+            if not choice:
+                # choice throws an IndexError if the list is empty
+                choice = random.choice(
+                    list(filter(lambda i: i['count'] == highest_vote, votes))
+                )['reaction']
 
         except (IndexError, ValueError):
             bot.chat_post_message(channel, "No technicie this week? :(")
