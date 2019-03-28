@@ -152,3 +152,33 @@ def test_choose_existing_choice_in_reminder():
                     "<!everyone> Reminder: We're eating Albert Heijn! "
                     "Login to ah.nl and make a list.\nJelle has the honour to "
                     ":bike: today")
+
+
+def test_check_updates_table_with_choice():
+    mockbot = BotMock()
+    c = mockbot.conn.cursor()
+    c.execute(
+        f'INSERT INTO {TABLE_VOTES} '
+        f'({VOTES_CHANNEL}, {VOTES_TIMESTAMP}, {VOTES_CHOICE}) '
+        f'VALUES (?, ?, ?)',
+        ('#general', int(time.time()), None)
+    )
+
+    mockbot.conn.commit()
+
+    mockbot.return_items = [{
+        'message': {
+            'reactions': [
+                {'name': name, 'users': ['self'], 'count': 2}
+                for name in ALL_REACTIONS.keys()
+            ]
+        }
+    }]
+
+    check(mockbot, remind=False)
+
+    row = c.execute(
+        f'SELECT {VOTES_CHOICE} '
+        f'FROM {TABLE_VOTES}'
+    ).fetchone()
+    assert row[0] is not None

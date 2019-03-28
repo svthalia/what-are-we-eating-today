@@ -234,7 +234,8 @@ def check(bot, remind=False):
 
     c = bot.conn.cursor()
     row = c.execute(
-        f'SELECT {VOTES_CHANNEL}, {VOTES_TIMESTAMP}, {VOTES_CHOICE} '
+        f'SELECT {VOTES_ID}, {VOTES_CHANNEL}, {VOTES_TIMESTAMP}, '
+        f'{VOTES_CHOICE} '
         f'FROM {TABLE_VOTES} '
         f'ORDER BY {VOTES_TIMESTAMP} '
         f'DESC LIMIT 1'
@@ -242,9 +243,10 @@ def check(bot, remind=False):
 
     if row is None:
         raise RuntimeError("No messages found at checking time")
-    channel = row[0]
-    timestamp = row[1]
-    choice = row[2]
+    votes_id = row[0]
+    channel = row[1]
+    timestamp = row[2]
+    choice = row[3]
     if float(timestamp) < time.time() - ONE_DAY:
         raise RuntimeError("Last vote was too long ago")
 
@@ -282,6 +284,15 @@ def check(bot, remind=False):
         except (IndexError, ValueError):
             bot.chat_post_message(channel, "No technicie this week? :(")
             return
+
+        if not remind:
+            c.execute(
+                f'UPDATE {TABLE_VOTES} '
+                f'SET {VOTES_CHOICE} = ? '
+                f'WHERE {VOTES_ID} = ?',
+                (choice, votes_id)
+            )
+            bot.conn.commit()
 
         reminder = "Reminder: " if remind else ""
 
