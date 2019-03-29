@@ -5,7 +5,7 @@ import pytest
 
 import bot
 
-from bot import Bot, main
+from bot import main
 
 
 pytestmark = pytest.mark.skipif(
