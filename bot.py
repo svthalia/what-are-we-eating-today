@@ -16,6 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import enum
 import os
 import random
 import sqlite3
@@ -39,35 +40,54 @@ ONE_DAY = 60 * 60 * 24
 # How many times a failing Slack API call should be retried
 MAX_RETRIES = 5
 
+
+class DeliveryType(enum.Enum):
+    bike = 1
+    delivery = 2
+    eating_out = 3
+
+
 EAT_REACTIONS = {
     'ramen': {
         'desc': 'Chinese',
         'instr': "https://eetvoudig.technicie.nl\n"
                  "Don't forget to order plain rice for Simone "
                  "(if she joins us)",
+        'type': DeliveryType.bike,
     },
     'fries': {
         'desc': 'Fest',
         'instr': "https://eetfestijn.technicie.nl",
+        'type': DeliveryType.bike,
     },
     'ah': {
         'desc': 'Albert Heijn',
         'instr': "Login to ah.nl and make a list.",
+        'type': DeliveryType.bike,
     },
     'sandwich': {
         'desc': 'Subway',
         'instr': "Choose your sub at: "
                  "https://www.subway.com/nl-NL/MenuNutrition/Menu/All",
+        'type': DeliveryType.bike,
     },
     'pizza': {
         'desc': 'Pizza',
         'instr': "Check the menu at: "
                  "https://www.thuisbezorgd.nl/pizzeria-rotana",
+        'type': DeliveryType.delivery,
     },
     'dragon_face': {
         'desc': 'Wok',
         'instr': "Check the menu at: https://www.thuisbezorgd.nl/iwok-go\n"
                  "Don't forget to ask for chopsticks!",
+        'type': DeliveryType.delivery,
+    },
+    'knife_fork_plate': {
+        'desc': 'at the Refter',
+        'instr': "Everyone pays for themselves at the Refter restaurant, "
+                 "and there are multiple meals to choose there.",
+        'type': DeliveryType.eating_out,
     },
 }
 HOME_REACTIONS = {
@@ -297,11 +317,18 @@ def check(bot, remind=False):
         reminder = "Reminder: " if remind else ""
 
         info = EAT_REACTIONS[choice]
+        message = (f"<!everyone> {reminder}We're eating {info['desc']}! "
+                   f"{info['instr']}")
+
+        if info['type'] == DeliveryType.bike:
+            message += f"\n{lowest} has the honour to :bike: today"
+        elif info['type'] == DeliveryType.delivery:
+            message += (f"\n{lowest} has the honour to pay for "
+                        f"this :money_with_wings:")
+
         bot.chat_post_message(
             channel,
-            f"<!everyone> {reminder}We're eating {info['desc']}! "
-            f"{info['instr']}\n"
-            f"{lowest} has the honour to :bike: today"
+            message
         )
 
     except KeyError as e:
