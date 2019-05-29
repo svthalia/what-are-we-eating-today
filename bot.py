@@ -79,14 +79,16 @@ EAT_REACTIONS = {
     },
     'dragon_face': {
         'desc': 'Wok',
-        'instr': "Check the menu at: https://www.thuisbezorgd.nl/iwok-go\n"
+        'instr': "Check the menu at: https://nijmegen.iwokandgo.nl/\n"
                  "Don't forget to ask for chopsticks!",
+                 "Destination: 6525EC Toernooiveld 212, ~18:00",
         'type': DeliveryType.delivery,
     },
     'knife_fork_plate': {
         'desc': 'at the Refter',
         'instr': "Everyone pays for themselves at the Refter restaurant, "
                  "and there are multiple meals to choose there.",
+                 "Check for the daily menu: https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/",
         'type': DeliveryType.eating_out,
     },
 }
