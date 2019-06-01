@@ -52,7 +52,8 @@ EAT_REACTIONS = {
         'desc': 'Chinese',
         'instr': "https://eetvoudig.technicie.nl\n"
                  "Don't forget to order plain rice for Simone "
-                 "(if she joins us)",
+                 "(if she joins us)\n",
+                 "Order from here: http://www.lotusnijmegen.nl/pages/acties.php"
         'type': DeliveryType.bike,
     },
     'fries': {
@@ -74,19 +75,22 @@ EAT_REACTIONS = {
     'pizza': {
         'desc': 'Pizza',
         'instr': "Check the menu at: "
-                 "https://www.thuisbezorgd.nl/pizzeria-rotana",
+                 "https://www.pizzeriarotana.nl\n",
+                 "Destination: 6525EC Toernooiveld 212, order at ~17:30",
         'type': DeliveryType.delivery,
     },
     'dragon_face': {
         'desc': 'Wok',
-        'instr': "Check the menu at: https://www.thuisbezorgd.nl/iwok-go\n"
-                 "Don't forget to ask for chopsticks!",
+        'instr': "Check the menu at: https://nijmegen.iwokandgo.nl\n"
+                 "Don't forget to ask for chopsticks!\n",
+                 "Destination: 6525EC Toernooiveld 212, order at ~17:30",
         'type': DeliveryType.delivery,
     },
     'knife_fork_plate': {
         'desc': 'at the Refter',
         'instr': "Everyone pays for themselves at the Refter restaurant, "
-                 "and there are multiple meals to choose there.",
+                 "and there are multiple meals to choose there.\n",
+                 "Check for the daily menu: https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/",
         'type': DeliveryType.eating_out,
     },
 }
