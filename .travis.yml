@@ -16,6 +16,7 @@ install:
 script:
   - "poetry run flake8 ."
   - "poetry run pytest --cov=bot ."
+  - "poetry run black --check bot.py test_bot_offline.py test_bot_live.py"
 
 notifications:
   email:

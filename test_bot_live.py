@@ -9,8 +9,8 @@ from bot import main
 
 
 pytestmark = pytest.mark.skipif(
-    os.getenv('SLACK_TOKEN') is None,
-    reason="will only run live tests when a slack token is present"
+    os.getenv("SLACK_TOKEN") is None,
+    reason="will only run live tests when a slack token is present",
 )
 
 
