@@ -19,20 +19,15 @@
 import enum
 import os
 import random
-import sqlite3
 import sys
 import time
 
+import pugsql
 import requests
 
 # Mapping from WBW names to Slack names:
 from settings import SLACK_MAPPING
 
-TABLE_VOTES = "vote_message"
-VOTES_ID = "id"
-VOTES_CHANNEL = "channel"
-VOTES_TIMESTAMP = "timestamp"
-VOTES_CHOICE = "choice"
 WBW_EMAIL = None
 WBW_PASSWORD = None
 WBW_LIST = None
@@ -109,27 +104,10 @@ class Bot:
     def __init__(self, base_url, token, db_name):
         self.base_url = base_url
         self.token = token
+        self.queries = pugsql.module("queries/")
+        self.queries.connect(f"sqlite:///{db_name}")
         if not os.path.isfile(db_name):
-            self.conn = sqlite3.connect(db_name)
-            self.init_db(self.conn)
-        else:
-            self.conn = sqlite3.connect(db_name)
-
-    @staticmethod
-    def init_db(conn):
-        """Create the required tables for the database"""
-        c = conn.cursor()
-
-        c.execute(
-            f"CREATE TABLE `{TABLE_VOTES}` "
-            f"(`{VOTES_ID}` INTEGER, "
-            f"`{VOTES_CHANNEL}` TEXT, "
-            f"`{VOTES_TIMESTAMP}` TEXT, "
-            f"`{VOTES_CHOICE}` TEXT, "
-            f"PRIMARY KEY(`{VOTES_ID}`));"
-        )
-
-        conn.commit()
+            self.queries.init_db()
 
     def chat_post_message(self, channel, text):
         """https://api.slack.com/methods/chat.post.message"""
@@ -180,15 +158,7 @@ def post_vote(bot, channel):
     for reaction in ALL_REACTIONS:
         bot.reactions_add(message["channel"], message["ts"], reaction)
 
-    c = bot.conn.cursor()
-    c.execute(
-        f"INSERT INTO {TABLE_VOTES} "
-        f"({VOTES_CHANNEL}, {VOTES_TIMESTAMP}) "
-        f"VALUES (?, ?)",
-        (message["channel"], message["ts"]),
-    )
-
-    bot.conn.commit()
+    bot.queries.add_vote_message(channel=message["channel"], timestamp=message["ts"])
 
 
 def create_wbw_session():
@@ -244,21 +214,14 @@ def check(bot, remind=False):
     the result plus the appointed courier
     """
 
-    c = bot.conn.cursor()
-    row = c.execute(
-        f"SELECT {VOTES_ID}, {VOTES_CHANNEL}, {VOTES_TIMESTAMP}, "
-        f"{VOTES_CHOICE} "
-        f"FROM {TABLE_VOTES} "
-        f"ORDER BY {VOTES_TIMESTAMP} "
-        f"DESC LIMIT 1"
-    ).fetchone()
+    vote_message = bot.queries.latest_vote_message()
 
-    if row is None:
+    if vote_message is None:
         raise RuntimeError("No messages found at checking time")
-    votes_id = row[0]
-    channel = row[1]
-    timestamp = row[2]
-    choice = row[3]
+    vote_id = vote_message["id"]
+    channel = vote_message["channel"]
+    timestamp = vote_message["timestamp"]
+    choice = vote_message["choice"]
     if float(timestamp) < time.time() - ONE_DAY:
         raise RuntimeError("Last vote was too long ago")
 
@@ -298,13 +261,7 @@ def check(bot, remind=False):
             return
 
         if not remind:
-            c.execute(
-                f"UPDATE {TABLE_VOTES} "
-                f"SET {VOTES_CHOICE} = ? "
-                f"WHERE {VOTES_ID} = ?",
-                (choice, votes_id),
-            )
-            bot.conn.commit()
+            bot.queries.set_choice(vote_id=vote_id, choice=choice)
 
         reminder = "Reminder: " if remind else ""
 

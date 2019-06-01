@@ -1,19 +1,10 @@
-import sqlite3
 import time
 
 import pytest
+import pugsql
 
 import bot
-from bot import (
-    post_vote,
-    check,
-    Bot,
-    ALL_REACTIONS,
-    TABLE_VOTES,
-    VOTES_TIMESTAMP,
-    VOTES_CHANNEL,
-    VOTES_CHOICE,
-)
+from bot import post_vote, check, Bot, ALL_REACTIONS
 
 
 class BotMock(Bot):
@@ -21,8 +12,9 @@ class BotMock(Bot):
     def __init__(self):
         self.methods_ran = list()
         self.return_items = None
-        self.conn = sqlite3.connect(":memory:")
-        self.init_db(self.conn)
+        self.queries = pugsql.module("queries/")
+        self.queries.connect(f"sqlite:///:memory:")
+        self.queries.init_db()
 
     def run_method(self, method, arguments: dict):
         self.methods_ran.append({"method": method, "arguments": arguments})
@@ -60,9 +52,7 @@ def test_post_vote_adds_message_to_database():
     mockbot = BotMock()
     mockbot.return_items = [{"ts": 1, "channel": "#general"}]
     post_vote(mockbot, "#general")
-    assert mockbot.conn.execute(
-        f"SELECT count() " f"FROM {TABLE_VOTES}"
-    ).fetchone() == (1,)
+    assert mockbot.queries.count()["count()"] == 1
 
 
 def wbw_get_lowest_member_mock(*args):
@@ -71,15 +61,7 @@ def wbw_get_lowest_member_mock(*args):
 
 def test_check_throws_error_when_last_post_was_long_ago():
     mockbot = BotMock()
-    c = mockbot.conn.cursor()
-    c.execute(
-        f"INSERT INTO {TABLE_VOTES} "
-        f"({VOTES_CHANNEL}, {VOTES_TIMESTAMP}) "
-        f"VALUES (?, ?)",
-        ("#general", 1),
-    )
-
-    mockbot.conn.commit()
+    mockbot.queries.add_vote_message(channel="#general", timestamp=1)
 
     with pytest.raises(RuntimeError, match="long ago"):
         check(mockbot)
@@ -87,15 +69,7 @@ def test_check_throws_error_when_last_post_was_long_ago():
 
 def test_check_quits_early_when_bomb_is_reacted():
     mockbot = BotMock()
-    c = mockbot.conn.cursor()
-    c.execute(
-        f"INSERT INTO {TABLE_VOTES} "
-        f"({VOTES_CHANNEL}, {VOTES_TIMESTAMP}) "
-        f"VALUES (?, ?)",
-        ("#general", int(time.time())),
-    )
-
-    mockbot.conn.commit()
+    mockbot.queries.add_vote_message(channel="#general", timestamp=time.time())
 
     mockbot.return_items = [{"message": {"reactions": [{"name": "bomb"}]}}]
 
@@ -108,15 +82,7 @@ def test_check_sends_sad_message_when_nobody_voted():
     bot.wbw_get_lowest_member = wbw_get_lowest_member_mock
 
     mockbot = BotMock()
-    c = mockbot.conn.cursor()
-    c.execute(
-        f"INSERT INTO {TABLE_VOTES} "
-        f"({VOTES_CHANNEL}, {VOTES_TIMESTAMP}) "
-        f"VALUES (?, ?)",
-        ("#general", int(time.time())),
-    )
-
-    mockbot.conn.commit()
+    mockbot.queries.add_vote_message(channel="#general", timestamp=time.time())
 
     mockbot.return_items = [
         {
@@ -137,15 +103,10 @@ def test_check_sends_sad_message_when_nobody_voted():
 
 def test_choose_existing_choice_in_reminder():
     mockbot = BotMock()
-    c = mockbot.conn.cursor()
-    c.execute(
-        f"INSERT INTO {TABLE_VOTES} "
-        f"({VOTES_CHANNEL}, {VOTES_TIMESTAMP}, {VOTES_CHOICE}) "
-        f"VALUES (?, ?, ?)",
-        ("#general", int(time.time()), "ah"),
+    mockbot.queries.add_vote_message(channel="#general", timestamp=time.time())
+    mockbot.queries.set_choice(
+        vote_id=mockbot.queries.latest_vote_message()["id"], choice="ah"
     )
-
-    mockbot.conn.commit()
 
     mockbot.return_items = [
         {
@@ -172,15 +133,7 @@ def test_choose_existing_choice_in_reminder():
 
 def test_check_updates_table_with_choice():
     mockbot = BotMock()
-    c = mockbot.conn.cursor()
-    c.execute(
-        f"INSERT INTO {TABLE_VOTES} "
-        f"({VOTES_CHANNEL}, {VOTES_TIMESTAMP}, {VOTES_CHOICE}) "
-        f"VALUES (?, ?, ?)",
-        ("#general", int(time.time()), None),
-    )
-
-    mockbot.conn.commit()
+    mockbot.queries.add_vote_message(channel="#general", timestamp=time.time())
 
     mockbot.return_items = [
         {
@@ -195,5 +148,5 @@ def test_check_updates_table_with_choice():
 
     check(mockbot, remind=False)
 
-    row = c.execute(f"SELECT {VOTES_CHOICE} " f"FROM {TABLE_VOTES}").fetchone()
-    assert row[0] is not None
+    row = mockbot.queries.latest_vote_message()
+    assert row["choice"] is not None
