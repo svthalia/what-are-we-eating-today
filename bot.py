@@ -47,8 +47,8 @@ EAT_REACTIONS = {
         "desc": "Chinese",
         "instr": "https://eetvoudig.technicie.nl\n"
         "Don't forget to order plain rice for Simone "
-        "(if she joins us)\n",
-        "Order from here: http://www.lotusnijmegen.nl/pages/acties.php"
+        "(if she joins us)\n"
+        "Order from here: http://www.lotusnijmegen.nl/pages/acties.php",
         "type": DeliveryType.bike,
     },
     "fries": {
