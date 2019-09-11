@@ -10,4 +10,4 @@ RUN poetry install --no-dev
 
 RUN touch settings.py
 
-ENTRYPOINT [ "python", "./bot.py" ]
+ENTRYPOINT [ "poetry", "run", "./bot.py" ]
