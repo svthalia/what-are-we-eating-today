@@ -94,15 +94,17 @@ EAT_REACTIONS = {
     },
     "hospital": {
         "desc": "at the hospital (https://www.radboudumc.nl/patientenzorg"
-        "/voorzieningen/eten-en-drinken/menu-van-de-dag/" +
-                 datetime.datetime.today().strftime("%A-%d-%B") + "/)",
+        "/voorzieningen/eten-en-drinken/menu-van-de-dag/"
+        + datetime.datetime.today().strftime("%A-%d-%B")
+        + "/)",
         "instr": "Everyone pays for themselves at the hospital restaurant, "
         "and there are multiple meals to choose there.\n"
         "Check for the daily menu: https://www.radboudumc.nl/patientenzorg"
-        "/voorzieningen/eten-en-drinken/menu-van-de-dag/" +
-                 datetime.datetime.today().strftime("%A-%d-%B") + "/",
+        "/voorzieningen/eten-en-drinken/menu-van-de-dag/"
+        + datetime.datetime.today().strftime("%A-%d-%B")
+        + "/",
         "type": DeliveryType.eating_out,
-    }
+    },
 }
 HOME_REACTIONS = {
     "house": {"desc": "I'm eating at home"},
