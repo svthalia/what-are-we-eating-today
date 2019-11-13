@@ -37,7 +37,7 @@ ONE_DAY = 60 * 60 * 24
 # How many times a failing Slack API call should be retried
 MAX_RETRIES = 5
 
-locale.setlocale(locale.LC_TIME, "nl_NL")
+locale.setlocale(locale.LC_TIME, "nl_NL.UTF-8")
 
 
 class DeliveryType(enum.Enum):
