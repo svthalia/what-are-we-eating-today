@@ -86,14 +86,16 @@ EAT_REACTIONS = {
         "type": DeliveryType.delivery,
     },
     "knife_fork_plate": {
-        "desc": "at the Refter",
+        "desc": "at the Refter (https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/)",
         "instr": "Everyone pays for themselves at the Refter restaurant, "
         "and there are multiple meals to choose there.\n"
         "Check for the daily menu: https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/",
         "type": DeliveryType.eating_out,
     },
     "hospital": {
-        "desc": "at the hospital",
+        "desc": "at the hospital (https://www.radboudumc.nl/patientenzorg"
+        "/voorzieningen/eten-en-drinken/menu-van-de-dag/" +
+                 datetime.datetime.today().strftime("%A-%d-%B") + "/)",
         "instr": "Everyone pays for themselves at the hospital restaurant, "
         "and there are multiple meals to choose there.\n"
         "Check for the daily menu: https://www.radboudumc.nl/patientenzorg"
