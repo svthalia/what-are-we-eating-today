@@ -16,7 +16,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import datetime
 import enum
+import locale
 import os
 import random
 import sys
@@ -34,6 +36,8 @@ WBW_LIST = None
 ONE_DAY = 60 * 60 * 24
 # How many times a failing Slack API call should be retried
 MAX_RETRIES = 5
+
+locale.setlocale(locale.LC_TIME, "nl_NL.UTF-8")
 
 
 class DeliveryType(enum.Enum):
@@ -82,10 +86,23 @@ EAT_REACTIONS = {
         "type": DeliveryType.delivery,
     },
     "knife_fork_plate": {
-        "desc": "at the Refter",
+        "desc": "at the Refter (https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/)",
         "instr": "Everyone pays for themselves at the Refter restaurant, "
         "and there are multiple meals to choose there.\n"
         "Check for the daily menu: https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/",
+        "type": DeliveryType.eating_out,
+    },
+    "hospital": {
+        "desc": "at the hospital (https://www.radboudumc.nl/patientenzorg"
+        "/voorzieningen/eten-en-drinken/menu-van-de-dag/"
+        + datetime.datetime.today().strftime("%A-%d-%B")
+        + "/)",
+        "instr": "Everyone pays for themselves at the hospital restaurant, "
+        "and there are multiple meals to choose there.\n"
+        "Check for the daily menu: https://www.radboudumc.nl/patientenzorg"
+        "/voorzieningen/eten-en-drinken/menu-van-de-dag/"
+        + datetime.datetime.today().strftime("%A-%d-%B")
+        + "/",
         "type": DeliveryType.eating_out,
     },
 }
