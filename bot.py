@@ -86,17 +86,17 @@ EAT_REACTIONS = {
         "type": DeliveryType.delivery,
     },
     "knife_fork_plate": {
-        "desc": "at the Refter (https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/)",
+        "desc": "<https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/|at the Refter>",
         "instr": "Everyone pays for themselves at the Refter restaurant, "
         "and there are multiple meals to choose there.\n"
         "Check for the daily menu: https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/",
         "type": DeliveryType.eating_out,
     },
     "hospital": {
-        "desc": "at the hospital (https://www.radboudumc.nl/patientenzorg"
+        "desc": "<https://www.radboudumc.nl/patientenzorg"
         "/voorzieningen/eten-en-drinken/menu-van-de-dag/"
         + datetime.datetime.today().strftime("%A-%d-%B")
-        + "/)",
+        + "/|at the Hospital>",
         "instr": "Everyone pays for themselves at the hospital restaurant, "
         "and there are multiple meals to choose there.\n"
         "Check for the daily menu: https://www.radboudumc.nl/patientenzorg"
@@ -290,9 +290,7 @@ def check(bot, remind=False):
         if info["type"] == DeliveryType.bike:
             message += f"\n{lowest} has the honour to :bike: today"
         elif info["type"] == DeliveryType.delivery:
-            message += (
-                f"\n{lowest} has the honour to pay for " f"this :money_with_wings:"
-            )
+            message += f"\n{lowest} has the honour to pay for this :money_with_wings:"
 
         bot.chat_post_message(channel, message)
 
