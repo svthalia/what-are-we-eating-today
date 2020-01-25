@@ -14,7 +14,6 @@ pytest-cov = "^2.6"
 pugsql = "^0.1.7"
 
 [tool.poetry.dev-dependencies]
-flake8 = "^3.6"
 pytest = "^5.1"
 black = {version = "^19.3b0",allows-prereleases = true}
 
