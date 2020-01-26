@@ -49,16 +49,16 @@ class DeliveryType(enum.Enum):
 EAT_REACTIONS = {
     "ramen": {
         "desc": "Chinese",
-        "instr": "https://eetvoudig.technicie.nl\n"
-        "Don't forget to order plain rice for Simone "
-        "(if she joins us)\n"
+        "instr": "Everybody that wants to join for dinner, adds a :bee: response to this message.\n"
+        "Don't forget to order plain rice for Simone (if she joins us)\n"
         "Order from here: http://www.lotusnijmegen.nl/pages/acties.php",
         "type": DeliveryType.bike,
     },
     "fries": {
-        "desc": "Fest",
-        "instr": "https://eetfestijn.technicie.nl",
-        "type": DeliveryType.bike,
+        "desc": "Snackbar",
+        "instr": "The person who pays chooses a snackbar to order from.\n"
+        "Everybody that wants to join for dinner, adds a :bee: response to this message.",
+        "type": DeliveryType.delivery,
     },
     "ah": {
         "desc": "Albert Heijn",
