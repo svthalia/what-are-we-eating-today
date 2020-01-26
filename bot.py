@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import datetime
+import argparse
 import enum
 import locale
 import os
@@ -24,26 +24,24 @@ import random
 import sys
 import time
 
+from datetime import datetime, timedelta
+
 import pugsql
 import requests
 
 # Mapping from WBW names to Slack names:
 from settings import SLACK_MAPPING
 
-WBW_EMAIL = None
-WBW_PASSWORD = None
-WBW_LIST = None
-ONE_DAY = 60 * 60 * 24
-# How many times a failing Slack API call should be retried
-MAX_RETRIES = 5
+MAX_SLACK_API_RETRIES = 5
+SLACK_BASE_URL = "https://slack.com/api/"
 
 locale.setlocale(locale.LC_TIME, "nl_NL.UTF-8")
 
 
 class DeliveryType(enum.Enum):
-    bike = 1
-    delivery = 2
-    eating_out = 3
+    BIKE = 1
+    DELIVERY = 2
+    EATING_OUT = 3
 
 
 EAT_REACTIONS = {
@@ -52,53 +50,55 @@ EAT_REACTIONS = {
         "instr": "Everybody that wants to join for dinner, adds a :bee: response to this message.\n"
         "Don't forget to order plain rice for Simone (if she joins us)\n"
         "Order from here: http://www.lotusnijmegen.nl/pages/acties.php",
-        "type": DeliveryType.bike,
+        "type": DeliveryType.BIKE,
     },
     "fries": {
         "desc": "Snackbar",
         "instr": "The person who pays chooses a snackbar to order from.\n"
         "Everybody that wants to join for dinner, adds a :bee: response to this message.",
-        "type": DeliveryType.delivery,
+        "type": DeliveryType.DELIVERY,
     },
     "pizza": {
         "desc": "Pizza",
         "instr": "Check the menu at: "
         "https://www.pizzeriarotana.nl\n"
         "Destination: 6525EC Toernooiveld 212, order at ~17:30",
-        "type": DeliveryType.delivery,
+        "type": DeliveryType.DELIVERY,
     },
     "dragon_face": {
         "desc": "Wok",
         "instr": "Check the menu at: https://nijmegen.iwokandgo.nl\n"
         "Don't forget to ask for chopsticks!\n"
         "Destination: 6525EC Toernooiveld 212, order at ~17:30",
-        "type": DeliveryType.delivery,
+        "type": DeliveryType.DELIVERY,
     },
     "knife_fork_plate": {
         "desc": "<https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/|at the Refter>",
         "instr": "Everyone pays for themselves at the Refter restaurant, "
         "and there are multiple meals to choose there.\n"
         "Check for the daily menu: https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/",
-        "type": DeliveryType.eating_out,
+        "type": DeliveryType.EATING_OUT,
     },
     "hospital": {
         "desc": "<https://www.radboudumc.nl/patientenzorg"
         "/voorzieningen/eten-en-drinken/menu-van-de-dag/"
-        + datetime.datetime.today().strftime("%A-%-d-%B")
+        + datetime.today().strftime("%A-%-d-%B")
         + "/|at the Hospital>",
         "instr": "Everyone pays for themselves at the hospital restaurant, "
         "and there are multiple meals to choose there.\n"
         "Check for the daily menu: https://www.radboudumc.nl/patientenzorg"
         "/voorzieningen/eten-en-drinken/menu-van-de-dag/"
-        + datetime.datetime.today().strftime("%A-%-d-%B")
+        + datetime.today().strftime("%A-%-d-%B")
         + "/",
-        "type": DeliveryType.eating_out,
+        "type": DeliveryType.EATING_OUT,
     },
 }
+
 HOME_REACTIONS = {
     "house": {"desc": "I'm eating at home"},
     "x": {"desc": "I'm not going today"},
 }
+
 ALL_REACTIONS = {**EAT_REACTIONS, **HOME_REACTIONS}
 
 
@@ -107,8 +107,7 @@ class Bot:
     this class also manages the database
     """
 
-    def __init__(self, base_url, token, db_name):
-        self.base_url = base_url
+    def __init__(self, token, db_name):
         self.token = token
         self.queries = pugsql.module("queries/")
         self.queries.connect(f"sqlite:///{db_name}")
@@ -131,23 +130,22 @@ class Bot:
             "reactions.add", {"channel": channel, "timestamp": timestamp, "name": name}
         )
 
-    def run_method(self, method, arguments: dict):
+    def run_method(self, method, data: dict):
         """Base method for running slack API calls"""
-        arguments["token"] = self.token
-        for x in range(MAX_RETRIES):
-            r = requests.post(self.base_url + method, data=arguments)
+        data["token"] = self.token
+        for x in range(MAX_SLACK_API_RETRIES):
+            r = requests.post(SLACK_BASE_URL + method, data=arguments)
             json = r.json()
             if json["ok"]:
                 return json
             elif json["error"] == "ratelimited":
                 time.sleep((x + 1) * 2)
             else:
-                print(json)
                 raise RuntimeError("Slack api call failed")
 
 
 def post_vote(bot, channel):
-    """Sends a voting message to the channel `channel`"""
+    """Sends a voting message to the channel `channel`."""
 
     message = bot.chat_post_message(
         channel,
@@ -168,9 +166,11 @@ def post_vote(bot, channel):
 
 
 def create_wbw_session():
-    """Logs in to wiebetaaltwat.nl and returns the requests session"""
+    """Logs in to WieBetaaltWat and returns the requests session."""
     session = requests.Session()
-    payload = {"user": {"email": WBW_EMAIL, "password": WBW_PASSWORD}}
+    payload = {
+        "user": {"email": arguments.wbw_username, "password": arguments.wbw_password}
+    }
     response = session.post(
         "https://api.wiebetaaltwat.nl/api/users/sign_in",
         json=payload,
@@ -180,17 +180,17 @@ def create_wbw_session():
 
 
 def wbw_get_lowest_member(voted):
-    """Looks up the wiebetaaltwat balance and returns
-    the slack name of the lowest standing balance holder
+    """Looks up the WieBetaaltWat balance and returns
+    the slack name of the lowest standing balance holder.
 
     If there is a tied lowest member, a random one is chosen.
 
-    :param voted: the slack names of the people that should be considered
+    :param voted: the slack names of the people that should be considered.
     """
     session, response = create_wbw_session()
 
     response = session.get(
-        f"https://api.wiebetaaltwat.nl/api/lists/{WBW_LIST}/balance",
+        f"https://api.wiebetaaltwat.nl/api/lists/{arguments.wbw_list}/balance",
         headers={"Accept-Version": "6"},
         cookies=response.cookies,
     )
@@ -217,7 +217,7 @@ def wbw_get_lowest_member(voted):
 
 def check(bot, remind=False):
     """Tallies the last sent vote and sends
-    the result plus the appointed courier
+    the result plus the appointed courier.
     """
 
     vote_message = bot.queries.latest_vote_message()
@@ -228,7 +228,7 @@ def check(bot, remind=False):
     channel = vote_message["channel"]
     timestamp = vote_message["timestamp"]
     choice = vote_message["choice"]
-    if float(timestamp) < time.time() - ONE_DAY:
+    if datetime.fromtimestamp(float(timestamp)) < datetime.now() - timedelta(days=1):
         raise RuntimeError("Last vote was too long ago")
 
     reactions = bot.reactions_get(channel, timestamp)
@@ -272,13 +272,11 @@ def check(bot, remind=False):
         reminder = "Reminder: " if remind else ""
 
         info = EAT_REACTIONS[choice]
-        message = (
-            f"<!everyone> {reminder}We're eating {info['desc']}! " f"{info['instr']}"
-        )
+        message = f"<!everyone> {reminder}We're eating {info['desc']}! {info['instr']}"
 
-        if info["type"] == DeliveryType.bike:
+        if info["type"] == DeliveryType.BIKE:
             message += f"\n{lowest} has the honour to :bike: today"
-        elif info["type"] == DeliveryType.delivery:
+        elif info["type"] == DeliveryType.DELIVERY:
             message += f"\n{lowest} has the honour to pay for this :money_with_wings:"
 
         bot.chat_post_message(channel, message)
@@ -286,45 +284,49 @@ def check(bot, remind=False):
     except KeyError as e:
         bot.chat_post_message(
             channel,
-            "Oh no something went wrong. "
-            "Back to the manual method, @pingiun handle this!",
+            "Oh no something went wrong. Back to the manual method, @pingiun handle this!",
         )
         raise e
 
 
-def usage():
-    """Prints usage"""
-    print(f"Usage: {sys.argv[0]} [ post | check | remind ]", file=sys.stderr)
-    sys.exit(1)
-
-
-def main():
-    global WBW_EMAIL
-    global WBW_PASSWORD
-    global WBW_LIST
-
-    if len(sys.argv) != 2:
-        usage()
-
-    WBW_EMAIL = os.environ["DJANGO_WBW_EMAIL"]
-    WBW_PASSWORD = os.environ["DJANGO_WBW_PASSWORD"]
-    WBW_LIST = os.getenv("WBW_LIST", "e52ec42b-3d9a-4a2e-8c40-93c3a2ec85b0")
-
-    base_url = os.getenv("SLACK_BASE_URL", "https://slack.com/api/")
-    token = os.environ["SLACK_TOKEN"]
-    db_name = os.getenv("DB_NAME", "db.sqlite3")
-    channel = os.getenv("SLACK_CHANNEL", "#general")
-    bot = Bot(base_url, token, db_name)
-
-    if sys.argv[1] == "post":
-        post_vote(bot, channel)
-    elif sys.argv[1] == "check":
-        check(bot)
-    elif sys.argv[1] == "remind":
-        check(bot, remind=True)
-    else:
-        usage()
-
-
 if __name__ == "__main__":
-    main()
+    argument_parser = argparse.ArgumentParser("What Are We Eating Today Slack Bot")
+
+    argument_parser.add_argument(
+        "--wbw-email", help="The username of the WieBetaaltWat user.", required=True
+    )
+    argument_parser.add_argument(
+        "--wbw-password", help="The password of the WieBetaaltWat user.", required=True
+    )
+    argument_parser.add_argument(
+        "--wbw-list", help="The WieBetaaltWat list.", required=True
+    )
+
+    argument_parser.add_argument(
+        "--slack-token", help="The Slack API Token.", required=True
+    )
+    argument_parser.add_argument(
+        "--slack-channel",
+        help="The Slack channel to post the messages in.",
+        required=True,
+    )
+
+    argument_parser.add_argument(
+        "--database-path",
+        help="Path to the SQLite3 database file (default: db.sqlite3).",
+        default="db.sqlite3",
+    )
+
+    argument_parser.add_argument(
+        "action", choices=("post", "check", "remind"), help="What action to perform."
+    )
+
+    arguments = argument_parser.parse_args()
+
+    slack_api_bot = Bot(arguments.slack_token, arguments.database_path)
+    if arguments.action == "post":
+        post_vote(slack_api_bot, arguments.channel)
+    elif arguments.action == "check":
+        check(slack_api_bot)
+    elif arguments.action == "remind":
+        check(slack_api_bot, remind=True)
