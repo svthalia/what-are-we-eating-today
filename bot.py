@@ -60,17 +60,6 @@ EAT_REACTIONS = {
         "instr": "https://eetfestijn.technicie.nl",
         "type": DeliveryType.bike,
     },
-    "ah": {
-        "desc": "Albert Heijn",
-        "instr": "Login to ah.nl and make a list.",
-        "type": DeliveryType.bike,
-    },
-    "sandwich": {
-        "desc": "Subway",
-        "instr": "Choose your sub at: "
-        "https://www.subway.com/nl-NL/MenuNutrition/Menu/All",
-        "type": DeliveryType.bike,
-    },
     "pizza": {
         "desc": "Pizza",
         "instr": "Check the menu at: "
