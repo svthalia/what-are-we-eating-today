@@ -105,7 +105,7 @@ def test_choose_existing_choice_in_reminder():
     mockbot = BotMock()
     mockbot.queries.add_vote_message(channel="#general", timestamp=time.time())
     mockbot.queries.set_choice(
-        vote_id=mockbot.queries.latest_vote_message()["id"], choice="ah"
+        vote_id=mockbot.queries.latest_vote_message()["id"], choice="pizza"
     )
 
     mockbot.return_items = [
@@ -125,9 +125,10 @@ def test_choose_existing_choice_in_reminder():
         if method["method"] == "chat.postMessage":
             assert (
                 method["arguments"]["text"]
-                == "<!everyone> Reminder: We're eating Albert Heijn! "
-                "Login to ah.nl and make a list.\nJelle has the honour to "
-                ":bike: today"
+                == "<!everyone> Reminder: We're eating Pizza! "
+                "Check the menu at: https://www.pizzeriarotana.nl\n"
+                "Destination: 6525EC Toernooiveld 212, order at ~17:30\n"
+                "Jelle has the honour to pay for this :money_with_wings:"
             )
 
 
