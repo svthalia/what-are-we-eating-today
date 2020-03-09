@@ -18,14 +18,10 @@
         - name: Setup nl-NL language pack
           run: sudo apt-get install -y language-pack-nl
       
-        - name: Setup Poetry
+        - name: Install Black
           run: |
             python -m pip install --upgrade --no-cache-dir pip
-            python -m pip install --no-cache-dir poetry
-            poetry install
+            python -m pip install --no-cache-dir black
 
         - name: Run black
-          run: poetry run black --quiet --check .
-
-        - name: Run tests
-          run: poetry run pytest --cov=bot .
+          run: black --quiet --check .

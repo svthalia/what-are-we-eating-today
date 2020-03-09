@@ -1,0 +1,34 @@
+---
+  name: Deploy to AWS Lambda
+  on: [push]
+
+  jobs:
+    deploy:
+      name: Upload lambda function
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout repository
+          uses: actions/checkout@v2
+
+        - name: Setup Python
+          uses: actions/setup-python@v1
+          with:
+            python-version: '3.8'
+
+        - name: Install pytz
+          run: |
+            python -m pip install --upgrade --no-cache-dir pip
+            python -m pip install --no-cache-dir --target . pytz
+
+        - name: Zip the function
+          run: |
+            zip -r deployment.zip bot.py pytz
+
+        - name: default deploy
+          uses: appleboy/lambda-action@master
+          with:
+            aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws_region: ${{ secrets.AWS_REGION }}
+            function_name: what-are-we-eating-today
+            zip_file: deployment.zip

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # what-are-we-eating-today - a slack polling bot for food
-# Copyright (C) 2019 Jelle Besseling
+# Copyright (C) 2020 Jelle Besseling
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,20 +15,23 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
+from typing import Mapping, Any, Tuple, List, Optional, Sequence, Set
 
+import boto3
 import datetime
-import enum
+import json
 import locale
 import os
+import pytz
 import random
 import sys
 import time
+import urllib3
+import warnings
+from enum import Enum, auto
 
-import pugsql
-import requests
-
-# Mapping from WBW names to Slack names:
-from settings import SLACK_MAPPING
+TABLE_VOTES = "SlackVotes"
+TABLE_MAPPING = "SlackMapping"
 
 WBW_EMAIL = None
 WBW_PASSWORD = None
@@ -38,48 +41,47 @@ ONE_DAY = 60 * 60 * 24
 MAX_RETRIES = 5
 
 locale.setlocale(locale.LC_TIME, "nl_NL.UTF-8")
+dynamodb = boto3.client("dynamodb")
 
 
-class DeliveryType(enum.Enum):
-    bike = 1
-    delivery = 2
-    eating_out = 3
+class FoodType(Enum):
+    pay_advance_bike = auto()
+    pay_advance_deliver = auto()
+    pay_self = auto()
 
 
 EAT_REACTIONS = {
     "ramen": {
         "desc": "Chinese",
-        "instr": "Everybody that wants to join for dinner, adds a :bee: response to this message.\n"
-        "Don't forget to order plain rice for Simone (if she joins us)\n"
+        "instr": "Don't forget to order plain rice for Simone (if she joins us)\n"
         "Order from here: http://www.lotusnijmegen.nl/pages/acties.php",
-        "type": DeliveryType.bike,
+        "type": FoodType.pay_advance_bike,
     },
     "fries": {
         "desc": "Snackbar",
-        "instr": "The person who pays chooses a snackbar to order from.\n"
-        "Everybody that wants to join for dinner, adds a :bee: response to this message.",
-        "type": DeliveryType.delivery,
+        "instr": "The person who pays chooses a snackbar to order from.",
+        "type": FoodType.pay_advance_deliver,
     },
     "pizza": {
         "desc": "Pizza",
         "instr": "Check the menu at: "
         "https://www.pizzeriarotana.nl\n"
         "Destination: 6525EC Toernooiveld 212, order at ~17:30",
-        "type": DeliveryType.delivery,
+        "type": FoodType.pay_advance_deliver,
     },
     "dragon_face": {
         "desc": "Wok",
         "instr": "Check the menu at: https://nijmegen.iwokandgo.nl\n"
         "Don't forget to ask for chopsticks!\n"
         "Destination: 6525EC Toernooiveld 212, order at ~17:30",
-        "type": DeliveryType.delivery,
+        "type": FoodType.pay_advance_deliver,
     },
     "knife_fork_plate": {
         "desc": "<https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/|at the Refter>",
         "instr": "Everyone pays for themselves at the Refter restaurant, "
         "and there are multiple meals to choose there.\n"
         "Check for the daily menu: https://www.ru.nl/facilitairbedrijf/horeca/refter/menu-soep-week/",
-        "type": DeliveryType.eating_out,
+        "type": FoodType.pay_self,
     },
     "hospital": {
         "desc": "<https://www.radboudumc.nl/patientenzorg"
@@ -92,7 +94,7 @@ EAT_REACTIONS = {
         "/voorzieningen/eten-en-drinken/menu-van-de-dag/"
         + datetime.datetime.today().strftime("%A-%-d-%B")
         + "/",
-        "type": DeliveryType.eating_out,
+        "type": FoodType.pay_self,
     },
 }
 HOME_REACTIONS = {
@@ -107,46 +109,54 @@ class Bot:
     this class also manages the database
     """
 
-    def __init__(self, base_url, token, db_name):
+    def __init__(self, base_url: str, token: str):
         self.base_url = base_url
         self.token = token
-        self.queries = pugsql.module("queries/")
-        self.queries.connect(f"sqlite:///{db_name}")
-        if not os.path.isfile(db_name):
-            self.queries.init_db()
+        self.client = urllib3.PoolManager()
 
-    def chat_post_message(self, channel, text):
+    def chat_post_message(self, channel: str, text: str) -> Mapping[str, Any]:
         """https://api.slack.com/methods/chat.post.message"""
         return self.run_method("chat.postMessage", {"channel": channel, "text": text})
 
-    def reactions_get(self, channel, timestamp, full=True):
+    def reactions_get(
+        self, channel: str, timestamp: str, full=True
+    ) -> Mapping[str, Any]:
         """https://api.slack.com/methods/reactions.get"""
         return self.run_method(
             "reactions.get", {"channel": channel, "timestamp": timestamp, "full": full}
         )
 
-    def reactions_add(self, channel, timestamp, name):
+    def reactions_add(
+        self, channel: str, timestamp: str, name: str
+    ) -> Mapping[str, Any]:
         """https://api.slack.com/methods/reactions.add"""
         return self.run_method(
             "reactions.add", {"channel": channel, "timestamp": timestamp, "name": name}
         )
 
-    def run_method(self, method, arguments: dict):
+    def run_method(
+        self, method: str, arguments: Mapping[str, Any]
+    ) -> Mapping[str, Any]:
         """Base method for running slack API calls"""
-        arguments["token"] = self.token
         for x in range(MAX_RETRIES):
-            r = requests.post(self.base_url + method, data=arguments)
-            json = r.json()
-            if json["ok"]:
-                return json
-            elif json["error"] == "ratelimited":
+            r = self.client.request(
+                "POST",
+                self.base_url + method,
+                fields=arguments,
+                headers={"Authorization": f"Bearer {self.token}",},
+            )
+
+            data = json.loads(r.data.decode("utf-8"))
+            if data["ok"]:
+                return data
+            elif data["error"] == "ratelimited":
                 time.sleep((x + 1) * 2)
             else:
-                print(json)
-                raise RuntimeError("Slack api call failed")
+                raise RuntimeError(f"Slack api call failed: {data}")
+        raise RuntimeError(f"Slack api call failed: {data}")
 
 
-def post_vote(bot, channel):
+def post_vote(bot: Bot, channel: str) -> None:
     """Sends a voting message to the channel `channel`"""
 
     message = bot.chat_post_message(
@@ -158,55 +168,76 @@ def post_vote(bot, channel):
     )
 
     if "ts" not in message:
-        print(message)
-        raise RuntimeError("Invalid response")
+        raise RuntimeError(f"Invalid response: {message}")
+
+    dynamodb.put_item(
+        TableName=TABLE_VOTES,
+        Item={
+            "ChannelId": {"S": message["channel"]},
+            "Date": {"S": str(datetime.date.today())},
+            "Msg": {"S": message["ts"]},
+        },
+    )
 
     for reaction in ALL_REACTIONS:
         bot.reactions_add(message["channel"], message["ts"], reaction)
 
-    bot.queries.add_vote_message(channel=message["channel"], timestamp=message["ts"])
 
-
-def create_wbw_session():
+def wbw_login() -> str:
     """Logs in to wiebetaaltwat.nl and returns the requests session"""
-    session = requests.Session()
+    http = urllib3.PoolManager()
     payload = {"user": {"email": WBW_EMAIL, "password": WBW_PASSWORD}}
-    response = session.post(
+    r = http.request(
+        "POST",
         "https://api.wiebetaaltwat.nl/api/users/sign_in",
-        json=payload,
-        headers={"Accept-Version": "6"},
+        body=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Accept-Version": "6",
+            "Content-Type": "application/json; charset=utf-8",
+            "Accept": "application/json",
+        },
     )
-    return session, response
+    return r.headers["Set-Cookie"].split(";")[0]
 
 
-def wbw_get_lowest_member(voted):
-    """Looks up the wiebetaaltwat balance and returns
-    the slack name of the lowest standing balance holder
+def slack_mapping(wbw_id: str) -> str:
+    item = dynamodb.get_item(TableName=TABLE_MAPPING, Key={"WbwUUID": {"S": wbw_id}})
+    return item.get("Item", {}).get("SlackId", {}).get("S")
+
+
+def wbw_get_lowest_member(voted: Set[str]) -> str:
+    """Looks up the wiebetaaltwat balance and returns the slack name of the lowest standing balance holder
 
     If there is a tied lowest member, a random one is chosen.
 
     :param voted: the slack names of the people that should be considered
     """
-    session, response = create_wbw_session()
+    cookie = wbw_login()
 
-    response = session.get(
+    http = urllib3.PoolManager()
+    r = http.request(
+        "GET",
         f"https://api.wiebetaaltwat.nl/api/lists/{WBW_LIST}/balance",
-        headers={"Accept-Version": "6"},
-        cookies=response.cookies,
+        headers={
+            "Accept-Version": "6",
+            "Content-Type": "application/json; charset=utf-8",
+            "Accept": "application/json",
+            "Cookie": cookie,
+        },
     )
 
-    data = response.json()
+    data = json.loads(r.data.decode("utf-8"))
     joining_members = []
     for member in reversed(data["balance"]["member_totals"]):
         wbw_id = member["member_total"]["member"]["id"]
         name = member["member_total"]["member"]["nickname"]
         balance = member["member_total"]["balance_total"]["fractional"]
         try:
-            if SLACK_MAPPING[wbw_id] in voted:
+            if slack_mapping(wbw_id) in voted:
                 joining_members.append({"name": name, "balance": balance})
         except KeyError:
-            print(
-                f"User not found in slack mapping: {name} ({wbw_id})", file=sys.stderr
+            warnings.warn(
+                f"User not found in slack mapping: {name} ({wbw_id})", RuntimeWarning,
             )
 
     lowest_balance = min(joining_members, key=lambda i: i["balance"])["balance"]
@@ -215,96 +246,138 @@ def wbw_get_lowest_member(voted):
     )["name"]
 
 
-def check(bot, remind=False):
-    """Tallies the last sent vote and sends
-    the result plus the appointed courier
-    """
+def which_vote(channel: str, votes: Optional[Sequence[Mapping[Any, Any]]]=None) -> Optional[str]:
+    item = dynamodb.get_item(
+        TableName=TABLE_VOTES,
+        Key={"ChannelId": {"S": channel}, "Date": {"S": str(datetime.date.today())}},
+    )
+    choice = item["Item"].get("Choice", {}).get("S")
+    timestamp = item["Item"]["Msg"]["S"]
 
-    vote_message = bot.queries.latest_vote_message()
-
-    if vote_message is None:
-        raise RuntimeError("No messages found at checking time")
-    vote_id = vote_message["id"]
-    channel = vote_message["channel"]
-    timestamp = vote_message["timestamp"]
-    choice = vote_message["choice"]
     if float(timestamp) < time.time() - ONE_DAY:
         raise RuntimeError("Last vote was too long ago")
+
+    if choice:
+        return choice
+
+    highest_vote = max(votes, key=lambda i: i["count"])["count"]
+    choice = random.choice(list(filter(lambda i: i["count"] == highest_vote, votes)))[
+        "reaction"
+    ]
+    if not choice:
+        # choice throws an IndexError if the list is empty
+        choice = random.choice(
+            list(filter(lambda i: i["count"] == highest_vote, votes))
+        )["reaction"]
+    return choice
+
+
+def last_poll(channel: str) -> str:
+    item = dynamodb.get_item(
+        TableName=TABLE_VOTES,
+        Key={"ChannelId": {"S": channel}, "Date": {"S": str(datetime.date.today())}},
+    )
+    if "Item" not in item:
+        raise Exception(f"No item found: {item}")
+    timestamp = item["Item"]["Msg"]["S"]
+
+    return timestamp
+
+
+def last_poll_and_bee(channel: str) -> Tuple[str, str]:
+    item = dynamodb.get_item(
+        TableName=TABLE_VOTES,
+        Key={"ChannelId": {"S": channel}, "Date": {"S": str(datetime.date.today())}},
+    )
+    if "Item" not in item:
+        raise Exception(f"No item found: {item}")
+    timestamp = item["Item"]["Msg"]["S"]
+    bee_timestamp = item["Item"]["BeeMsg"]["S"]
+
+    return timestamp, bee_timestamp
+
+
+def check(bot: Bot, channel: str) -> None:
+    """Tallies the last sent vote and sends the result plus the appointed courier."""
+
+    timestamp = last_poll(channel)
 
     reactions = bot.reactions_get(channel, timestamp)
     for reaction in reactions["message"]["reactions"]:
         if reaction["name"] == "bomb":
             return
-    filter_list = EAT_REACTIONS.keys()
 
-    voted_slack_ids = set()
+    voted_slack_ids: Set[str] = set()
     for reaction in reactions["message"]["reactions"]:
-        if reaction["name"] in filter_list:
+        if reaction["name"] in EAT_REACTIONS.keys():
             voted_slack_ids = voted_slack_ids.union(reaction["users"])
 
-    try:
-        votes = [
-            {"reaction": reaction["name"], "count": reaction["count"]}
-            for reaction in reactions["message"]["reactions"]
-            if reaction["name"] in filter_list and reaction["count"] > 1
-        ]
+    votes = [
+        {"reaction": reaction["name"], "count": reaction["count"]}
+        for reaction in reactions["message"]["reactions"]
+        if reaction["name"] in EAT_REACTIONS.keys() and reaction["count"] > 1
+    ]
 
-        try:
-            # Get lowest member may raise a ValueError when nobody voted
-            lowest = wbw_get_lowest_member(voted_slack_ids)
+    choice = which_vote(channel, votes)
 
-            # Choose a food, if the votes are tied a random food is chosen.
-            # Max throws ValueError if the list is empty
-            highest_vote = max(votes, key=lambda i: i["count"])["count"]
-            if not choice:
-                # choice throws an IndexError if the list is empty
-                choice = random.choice(
-                    list(filter(lambda i: i["count"] == highest_vote, votes))
-                )["reaction"]
+    info = EAT_REACTIONS[choice]
+    message = f"<!everyone> We're eating {info['desc']}! " f"{info['instr']}"
 
-        except (IndexError, ValueError):
-            bot.chat_post_message(channel, "No technicie this week? :(")
-            return
+    if info["type"] in {FoodType.pay_advance_deliver, FoodType.pay_advance_bike}:
+        message += "\nEverybody that wants to join for dinner, adds a :bee: response to this message."
 
-        if not remind:
-            bot.queries.set_choice(vote_id=vote_id, choice=choice)
+    ret = bot.chat_post_message(channel, message)
+    if "ts" not in ret:
+        raise RuntimeError(f"Invalid response: {message}")
 
-        reminder = "Reminder: " if remind else ""
-
-        info = EAT_REACTIONS[choice]
-        message = (
-            f"<!everyone> {reminder}We're eating {info['desc']}! " f"{info['instr']}"
-        )
-
-        if info["type"] == DeliveryType.bike:
-            message += f"\n{lowest} has the honour to :bike: today"
-        elif info["type"] == DeliveryType.delivery:
-            message += f"\n{lowest} has the honour to pay for this :money_with_wings:"
-
-        bot.chat_post_message(channel, message)
-
-    except KeyError as e:
-        bot.chat_post_message(
-            channel,
-            "Oh no something went wrong. "
-            "Back to the manual method, @pingiun handle this!",
-        )
-        raise e
+    dynamodb.put_item(
+        TableName=TABLE_VOTES,
+        Item={
+            "ChannelId": {"S": ret["channel"]},
+            "Date": {"S": str(datetime.date.today())},
+            "Msg": {"S": timestamp},
+            "Choice": {"S": choice},
+            "BeeMsg": {"S": ret["ts"]},
+        },
+    )
 
 
-def usage():
-    """Prints usage"""
-    print(f"Usage: {sys.argv[0]} [ post | check | remind ]", file=sys.stderr)
-    sys.exit(1)
+def remind(bot: Bot, channel: str) -> None:
+    timestamp, bee_timestamp = last_poll_and_bee(channel)
+
+    choice = which_vote(channel)
+    info = EAT_REACTIONS[choice]
+    message = f"<!everyone> Reminder: We're eating {info['desc']}! {info['instr']}"
+
+    voted_slack_ids = set()
+    reactions = bot.reactions_get(channel, bee_timestamp)
+    for reaction in reactions["message"].get("reactions", []):
+        if reaction["name"] == "bee":
+            voted_slack_ids = voted_slack_ids.union(reaction["users"])
+
+    if not voted_slack_ids:
+        reactions = bot.reactions_get(channel, timestamp)
+        for reaction in reactions["message"]["reactions"]:
+            if reaction["name"] == "bomb":
+                return
+        for reaction in reactions["message"]["reactions"]:
+            if reaction["name"] in EAT_REACTIONS.keys():
+                voted_slack_ids = voted_slack_ids.union(reaction["users"])
+
+    lowest = wbw_get_lowest_member(voted_slack_ids)
+
+    if info["type"] == FoodType.pay_advance_bike and remind:
+        message += f"\n{lowest} has the honour to :bike: today"
+    elif info["type"] == FoodType.pay_advance_deliver and remind:
+        message += f"\n{lowest} has the honour to pay for this :money_with_wings:"
+
+    bot.chat_post_message(channel, message)
 
 
-def main():
+def setup() -> Tuple[str, str, str]:
     global WBW_EMAIL
     global WBW_PASSWORD
     global WBW_LIST
-
-    if len(sys.argv) != 2:
-        usage()
 
     WBW_EMAIL = os.environ["DJANGO_WBW_EMAIL"]
     WBW_PASSWORD = os.environ["DJANGO_WBW_PASSWORD"]
@@ -312,19 +385,32 @@ def main():
 
     base_url = os.getenv("SLACK_BASE_URL", "https://slack.com/api/")
     token = os.environ["SLACK_TOKEN"]
-    db_name = os.getenv("DB_NAME", "db.sqlite3")
     channel = os.getenv("SLACK_CHANNEL", "#general")
-    bot = Bot(base_url, token, db_name)
+    return base_url, token, channel
 
-    if sys.argv[1] == "post":
+
+def lambda_handler(event: Mapping[Any, Any], context) -> None:
+    base_url, token, channel = setup()
+    bot = Bot(base_url, token)
+    if "override" in event:
+        if event["override"] == "post":
+            post_vote(bot, channel)
+        elif event["override"] == "check":
+            check(bot, channel)
+        elif event["override"] == "remind":
+            remind(bot, channel)
+        else:
+            raise Exception(f"Invalid override value: {event['override']}")
+        return
+
+    now = datetime.datetime.now(tz=pytz.timezone("Europe/Amsterdam"))
+    if now.hour == 9 and now.minute == 0:
         post_vote(bot, channel)
-    elif sys.argv[1] == "check":
-        check(bot)
-    elif sys.argv[1] == "remind":
-        check(bot, remind=True)
-    else:
-        usage()
+    if now.hour == 16 and now.minute == 0:
+        check(bot, channel)
+    if now.hour == 16 and now.minute == 45:
+        check(bot, channel)
 
 
 if __name__ == "__main__":
-    main()
+    lambda_handler({"override": sys.argv[1]}, None)
