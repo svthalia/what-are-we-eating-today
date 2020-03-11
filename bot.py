@@ -246,7 +246,9 @@ def wbw_get_lowest_member(voted: Set[str]) -> str:
     )["name"]
 
 
-def which_vote(channel: str, votes: Optional[Sequence[Mapping[Any, Any]]]=None) -> Optional[str]:
+def which_vote(
+    channel: str, votes: Optional[Sequence[Mapping[Any, Any]]] = None
+) -> Optional[str]:
     item = dynamodb.get_item(
         TableName=TABLE_VOTES,
         Key={"ChannelId": {"S": channel}, "Date": {"S": str(datetime.date.today())}},
