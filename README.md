@@ -1,20 +1,15 @@
-# What Are We Eating Today Slack Bot [![Build Status](https://travis-ci.org/thaliawww/what-are-we-eating-today.svg?branch=master)](https://travis-ci.org/thaliawww/what-are-we-eating-today)
+# What Are We Eating Today Slack Bot
 
-## Developing
-This project uses [poetry](https://github.com/sdispater/poetry) for dependency and virtualenv management. You should follow the [installation instructions](https://github.com/sdispater/poetry#installation) for poetry first. Then you can install all the dependencies with this command:
+This is a Slack bot that the Technicie uses to select what type of food they
+are going to eat every week. The bot is deployed on AWS lambda and should run
+at least at the times the bot checks (9:00, 16:00 and 16:45). The GitHub
+Action automatically deploys new versions of the timer and the /addwbwuser
+Slack command, some manual setup is needed for the lambda itself.
 
-```bash
-poetry install
-```
+The bot can be tested locally, for this you should have pytz avaiable in your
+Python installation. You can run the bot.py script with a first argument that
+overrides what action should be taken.
 
-The tests can be run with poetry:
-
-```bash
-poetry run pytest --cov=bot --cov-report=term-missing .
-```
-
-To be able to run the online tests, you need to set up the following environment variables:
-- SLACK_TOKEN=a slack api token
-- SLACK_CHANNEL=@yourname
-- DJANGO_WBW_PASSWORD=the password for your wiebetaaltwat user
-- DJANGO_WBW_EMAIL=your wiebetaaltwat user
+The slash command can be used to add new users to the bot, as WBW (splitser)
+users should be mapped to Slack users in the database. You can find the WBW
+UUID by going to their member page on the "Balance" tab on the site.

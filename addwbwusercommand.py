@@ -19,7 +19,9 @@ def respond(res):
     return {
         "statusCode": "200",
         "body": json.dumps(res),
-        "headers": {"Content-Type": "application/json",},
+        "headers": {
+            "Content-Type": "application/json",
+        },
     }
 
 

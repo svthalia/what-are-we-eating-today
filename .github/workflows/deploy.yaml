@@ -1,6 +1,9 @@
 ---
   name: Deploy to AWS Lambda
-  on: [push]
+  on:
+    push:
+      branches:
+        - master
 
   jobs:
     deploy:
@@ -21,8 +24,7 @@
             python -m pip install --no-cache-dir --target . pytz
 
         - name: Zip the function
-          run: |
-            zip -r deployment.zip bot.py pytz
+          run: zip -r deployment.zip bot.py pytz
 
         - name: Deploy poll bot
           uses: appleboy/lambda-action@master

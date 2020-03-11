@@ -143,7 +143,9 @@ class Bot:
                 "POST",
                 self.base_url + method,
                 fields=arguments,
-                headers={"Authorization": f"Bearer {self.token}",},
+                headers={
+                    "Authorization": f"Bearer {self.token}",
+                },
             )
 
             data = json.loads(r.data.decode("utf-8"))
@@ -237,7 +239,8 @@ def wbw_get_lowest_member(voted: Set[str]) -> str:
                 joining_members.append({"name": name, "balance": balance})
         except KeyError:
             warnings.warn(
-                f"User not found in slack mapping: {name} ({wbw_id})", RuntimeWarning,
+                f"User not found in slack mapping: {name} ({wbw_id})",
+                RuntimeWarning,
             )
 
     lowest_balance = min(joining_members, key=lambda i: i["balance"])["balance"]
